@@ -122,11 +122,16 @@ export function estDansLesNDerniersjours(dateIso: string, jours: number): boolea
 // Constantes utiles
 // ============================================================
 
-export const ENSEIGNES = [
+export const ENSEIGNES_PREDEFINIES = [
   'Carrefour', 'Carrefour Market', 'Super U', 'Leclerc',
   'Intermarché', 'Auchan', 'Lidl', 'Aldi', 'Monoprix',
-  'Franprix', 'Casino', 'Autre',
+  'Franprix', 'Casino',
 ] as const;
+
+// Valeur spéciale pour déclencher le champ texte libre
+export const ENSEIGNE_AUTRE = '__autre__';
+
+export const ENSEIGNES = [...ENSEIGNES_PREDEFINIES, ENSEIGNE_AUTRE] as const;
 
 export const CATEGORIES = [
   'alimentaire', 'boissons', 'hygiène', 'entretien',

@@ -17,19 +17,7 @@ export type Categorie =
   | 'animaux'
   | 'autre';
 
-export type Enseigne =
-  | 'Carrefour'
-  | 'Carrefour Market'
-  | 'Super U'
-  | 'Leclerc'
-  | 'Intermarché'
-  | 'Auchan'
-  | 'Lidl'
-  | 'Aldi'
-  | 'Monoprix'
-  | 'Franprix'
-  | 'Casino'
-  | 'Autre';
+export type Enseigne = string; // Enseignes prédéfinies + enseignes personnalisées
 
 export type Unite = 'kg' | 'g' | 'litre' | 'cl' | 'ml' | 'pièce';
 export type Source = 'manuel' | 'ticket_ocr';
