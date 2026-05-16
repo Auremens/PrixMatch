@@ -3,9 +3,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { storage } from '@/lib/storage';
+import { verifierCookieSession } from '@/lib/admin-auth';
 import type { Statut, Enseigne, Categorie, NouvelleEntree } from '@/lib/storage';
 
-// GET /api/prix?statut=validé&enseigne=Lidl&categorie=boissons
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -26,23 +26,41 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/prix — Soumettre une nouvelle contribution
 export async function POST(request: NextRequest) {
   try {
-    const corps = await request.json() as NouvelleEntree;
+    const corps = await request.json();
+    const { statut_force, ...entreeData } = corps as NouvelleEntree & { statut_force?: string };
 
-    // Validation minimale
-    if (!corps.produit_nom_original?.trim()) {
+    if (!entreeData.produit_nom_original?.trim()) {
       return NextResponse.json({ erreur: 'Nom du produit manquant' }, { status: 400 });
     }
-    if (!corps.enseigne) {
+    if (!entreeData.enseigne) {
       return NextResponse.json({ erreur: 'Enseigne manquante' }, { status: 400 });
     }
-    if (typeof corps.prix_unitaire !== 'number' || corps.prix_unitaire <= 0) {
+    if (typeof entreeData.prix_unitaire !== 'number' || entreeData.prix_unitaire <= 0) {
       return NextResponse.json({ erreur: 'Prix invalide' }, { status: 400 });
     }
 
-    const nouvelle = await storage.ajouter(corps);
+    // Vérifier si l'admin demande une validation directe
+    let validerDirectement = false;
+    if (statut_force === 'validé') {
+      const cookie = request.cookies.get('admin_session');
+      if (cookie) {
+        validerDirectement = await verifierCookieSession(cookie.value);
+      }
+    }
+
+    const nouvelle = await storage.ajouter(entreeData as NouvelleEntree);
+
+    // Si admin authentifié, valider directement
+    if (validerDirectement) {
+      const validee = await storage.mettreAJour(nouvelle.id, {
+        statut: 'validé',
+        date_moderation: new Date().toISOString(),
+      });
+      return NextResponse.json({ entree: validee }, { status: 201 });
+    }
+
     return NextResponse.json({ entree: nouvelle }, { status: 201 });
   } catch (e) {
     console.error('POST /api/prix:', e);
