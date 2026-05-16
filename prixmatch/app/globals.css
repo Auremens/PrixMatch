@@ -1,0 +1,261 @@
+/* app/globals.css — Système de design PrixMatch
+   Palette : fond noir profond, accents vert acide (#9cff57), typographie Syne
+   Esthétique : industriel/utilitaire avec touche éditoriale
+*/
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Variables CSS — Palette et typographie
+   ============================================================ */
+:root {
+  /* Couleurs principales */
+  --fond: #0a0a0a;
+  --fond-carte: #141414;
+  --fond-input: #1c1c1c;
+  --bord: #2a2a2a;
+  --bord-actif: #9cff57;
+
+  /* Textes */
+  --texte: #f0f0f0;
+  --texte-secondaire: #888888;
+  --texte-tertiaire: #555555;
+
+  /* Accents */
+  --accent: #9cff57;          /* Vert acide — badge meilleur prix, CTA */
+  --accent-sombre: #6bc43d;
+  --accent-rgb: 156, 255, 87;
+
+  /* Statuts */
+  --succes: #4ade80;
+  --erreur: #f87171;
+  --attente: #fbbf24;
+
+  /* Navigation */
+  --nav-hauteur: 64px;
+
+  /* Polices */
+  --font-display: var(--font-syne);
+  --font-mono: var(--font-dm-mono);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+@layer base {
+  html {
+    font-family: var(--font-syne), sans-serif;
+    background-color: var(--fond);
+    color: var(--texte);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Scrollbar custom */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track { background: var(--fond); }
+  ::-webkit-scrollbar-thumb {
+    background: var(--bord);
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--texte-tertiaire); }
+
+  /* Focus accessible */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ============================================================
+   Utilitaires Tailwind personnalisés
+   ============================================================ */
+@layer utilities {
+  .bg-fond { background-color: var(--fond); }
+  .bg-carte { background-color: var(--fond-carte); }
+  .bg-input { background-color: var(--fond-input); }
+  .border-bord { border-color: var(--bord); }
+  .border-accent { border-color: var(--accent); }
+  .text-texte { color: var(--texte); }
+  .text-secondaire { color: var(--texte-secondaire); }
+  .text-tertiaire { color: var(--texte-tertiaire); }
+  .text-accent { color: var(--accent); }
+  .text-succes { color: var(--succes); }
+  .text-erreur { color: var(--erreur); }
+  .text-attente { color: var(--attente); }
+
+  .font-display { font-family: var(--font-display), sans-serif; }
+  .font-mono { font-family: var(--font-mono), monospace; }
+}
+
+/* ============================================================
+   Composants réutilisables
+   ============================================================ */
+@layer components {
+
+  /* ---- Boutons ---- */
+  .btn-primaire {
+    @apply bg-accent text-black font-display font-700 px-6 py-3 rounded-xl
+           text-sm tracking-wide transition-all duration-150
+           active:scale-95 hover:bg-accent-sombre;
+  }
+
+  .btn-secondaire {
+    @apply bg-transparent border border-bord text-texte font-display font-600 px-6 py-3
+           rounded-xl text-sm tracking-wide transition-all duration-150
+           active:scale-95 hover:border-accent hover:text-accent;
+  }
+
+  .btn-danger {
+    @apply bg-transparent border border-erreur text-erreur font-display font-600 px-4 py-2
+           rounded-lg text-sm transition-all duration-150
+           active:scale-95 hover:bg-erreur hover:text-black;
+  }
+
+  /* ---- Cartes ---- */
+  .carte {
+    @apply bg-carte border border-bord rounded-2xl overflow-hidden;
+  }
+
+  /* ---- Inputs ---- */
+  .input-base {
+    @apply w-full bg-input border border-bord rounded-xl px-4 py-3
+           text-texte placeholder-tertiaire font-display text-sm
+           transition-colors duration-150
+           focus:border-accent focus:outline-none;
+  }
+
+  .select-base {
+    @apply w-full bg-input border border-bord rounded-xl px-4 py-3
+           text-texte font-display text-sm
+           transition-colors duration-150
+           focus:border-accent focus:outline-none
+           appearance-none;
+  }
+
+  /* ---- Labels ---- */
+  .label {
+    @apply text-secondaire text-xs font-display font-600 uppercase tracking-widest mb-1 block;
+  }
+
+  /* ---- Badge ---- */
+  .badge-meilleur-prix {
+    @apply bg-accent text-black text-xs font-display font-700 px-2 py-0.5
+           rounded-full uppercase tracking-wider;
+  }
+
+  .badge-statut-attente {
+    @apply bg-attente/10 text-attente text-xs font-display font-600 px-2 py-0.5 rounded-full;
+  }
+
+  .badge-statut-valide {
+    @apply bg-succes/10 text-succes text-xs font-display font-600 px-2 py-0.5 rounded-full;
+  }
+
+  .badge-statut-rejete {
+    @apply bg-erreur/10 text-erreur text-xs font-display font-600 px-2 py-0.5 rounded-full;
+  }
+
+  /* ---- Prix ---- */
+  .prix-principal {
+    @apply font-mono text-2xl font-500 text-accent tabular-nums;
+  }
+
+  .prix-reference {
+    @apply font-mono text-xs text-tertiaire tabular-nums;
+  }
+
+  /* ---- Séparateur ---- */
+  .separateur {
+    @apply border-t border-bord;
+  }
+
+  /* ---- Animation de chargement ---- */
+  .skeleton {
+    @apply animate-pulse bg-fond-input rounded-lg;
+  }
+}
+
+/* ============================================================
+   Navigation mobile (bottom nav)
+   ============================================================ */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--nav-hauteur);
+  background: rgba(10, 10, 10, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--bord);
+  z-index: 50;
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+@keyframes glisser-haut {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes apparaitre {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pulse-accent {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(var(--accent-rgb), 0); }
+}
+
+.animer-entree {
+  animation: glisser-haut 0.3s ease-out both;
+}
+
+.animer-fade {
+  animation: apparaitre 0.2s ease-out both;
+}
+
+/* Délais d'animation pour les listes */
+.delai-1 { animation-delay: 0.05s; }
+.delai-2 { animation-delay: 0.10s; }
+.delai-3 { animation-delay: 0.15s; }
+.delai-4 { animation-delay: 0.20s; }
+
+/* ============================================================
+   Barre de progression OCR
+   ============================================================ */
+.barre-ocr {
+  height: 3px;
+  background: var(--bord);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.barre-ocr-progres {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #5bffa8);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* ============================================================
+   Sparkline (mini graphique)
+   ============================================================ */
+.sparkline svg {
+  overflow: visible;
+}
+
+/* ============================================================
+   Safe area pour iPhone (encoche/barre)
+   ============================================================ */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
+}
