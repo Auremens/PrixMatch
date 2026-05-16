@@ -1,5 +1,5 @@
 // lib/storage.ts — Couche d'abstraction stockage
-// Utilise Vercel KV (Redis) si configuré, sinon localStorage comme fallback
+// Utilise Upstash Redis si configuré, sinon localStorage comme fallback
 // L'API publique est identique dans les deux cas
 
 import { v4 as uuidv4 } from 'uuid';
@@ -37,8 +37,8 @@ export type Statut = 'en_attente' | 'validé' | 'rejeté';
 
 export interface EntreePrix {
   id: string;
-  produit_nom: string;           // Nom normalisé (lowercase, sans accents)
-  produit_nom_original: string;  // Nom brut tel que saisi
+  produit_nom: string;
+  produit_nom_original: string;
   produit_categorie: Categorie;
   code_ean: string | null;
   enseigne: Enseigne;
@@ -46,7 +46,7 @@ export interface EntreePrix {
   prix_kg_litre: number | null;
   unite: Unite;
   quantite: number;
-  date_releve: string;           // ISO 8601
+  date_releve: string;
   source: Source;
   statut: Statut;
   date_moderation: string | null;
@@ -58,19 +58,27 @@ export type NouvelleEntree = Omit<EntreePrix, 'id' | 'statut' | 'date_moderation
 // Détection de l'environnement de stockage
 // ============================================================
 
-function estVercelKVDisponible(): boolean {
+function estUpstashDisponible(): boolean {
   return !!(
-    process.env.KV_REST_API_URL &&
-    process.env.KV_REST_API_TOKEN
+    process.env.UPSTASH_REDIS_REST_URL &&
+    process.env.UPSTASH_REDIS_REST_TOKEN
   );
 }
 
 // ============================================================
-// Implémentation Vercel KV (serveur uniquement)
+// Implémentation Upstash Redis (serveur uniquement)
 // ============================================================
 
+async function getRedis() {
+  const { Redis } = await import('@upstash/redis');
+  return new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  });
+}
+
 async function kv_ajouter(entree: NouvelleEntree): Promise<EntreePrix> {
-  const { kv } = await import('@vercel/kv');
+  const redis = await getRedis();
   const id = uuidv4();
   const nouvelle: EntreePrix = {
     ...entree,
@@ -79,13 +87,10 @@ async function kv_ajouter(entree: NouvelleEntree): Promise<EntreePrix> {
     date_moderation: null,
   };
 
-  // Stocker l'entrée principale
-  await kv.set(`prix:${id}`, JSON.stringify(nouvelle));
-
-  // Mettre à jour les index
-  await kv.lpush('index:statut:en_attente', id);
-  await kv.sadd(`index:enseigne:${entree.enseigne}`, id);
-  await kv.sadd(`index:categorie:${entree.produit_categorie}`, id);
+  await redis.set(`prix:${id}`, nouvelle);
+  await redis.lpush('index:statut:en_attente', id);
+  await redis.sadd(`index:enseigne:${entree.enseigne}`, id);
+  await redis.sadd(`index:categorie:${entree.produit_categorie}`, id);
 
   return nouvelle;
 }
@@ -95,36 +100,28 @@ async function kv_lister(filtres?: {
   enseigne?: Enseigne;
   categorie?: Categorie;
 }): Promise<EntreePrix[]> {
-  const { kv } = await import('@vercel/kv');
+  const redis = await getRedis();
   let ids: string[] = [];
 
   if (filtres?.statut === 'en_attente') {
-    // Utiliser l'index de la file de modération
-    ids = (await kv.lrange('index:statut:en_attente', 0, -1)) as string[];
+    ids = await redis.lrange('index:statut:en_attente', 0, -1);
   } else if (filtres?.enseigne) {
-    ids = (await kv.smembers(`index:enseigne:${filtres.enseigne}`)) as string[];
+    ids = await redis.smembers(`index:enseigne:${filtres.enseigne}`);
   } else if (filtres?.categorie) {
-    ids = (await kv.smembers(`index:categorie:${filtres.categorie}`)) as string[];
+    ids = await redis.smembers(`index:categorie:${filtres.categorie}`);
   } else {
-    // Scan complet — à éviter en production intensive
-    const cles = await kv.keys('prix:*');
+    const cles = await redis.keys('prix:*');
     ids = cles.map((c: string) => c.replace('prix:', ''));
   }
 
   if (ids.length === 0) return [];
 
-  // Récupérer toutes les entrées en parallèle
   const entrees = await Promise.all(
-    ids.map(async (id) => {
-      const val = await kv.get(`prix:${id}`);
-      if (!val) return null;
-      return typeof val === 'string' ? JSON.parse(val) : val;
-    })
+    ids.map((id) => redis.get<EntreePrix>(`prix:${id}`))
   );
 
   let resultats = entrees.filter(Boolean) as EntreePrix[];
 
-  // Filtrer par statut si demandé (hors en_attente, géré par index)
   if (filtres?.statut && filtres.statut !== 'en_attente') {
     resultats = resultats.filter((e) => e.statut === filtres.statut);
   }
@@ -133,45 +130,39 @@ async function kv_lister(filtres?: {
 }
 
 async function kv_obtenir(id: string): Promise<EntreePrix | null> {
-  const { kv } = await import('@vercel/kv');
-  const val = await kv.get(`prix:${id}`);
-  if (!val) return null;
-  return typeof val === 'string' ? JSON.parse(val) : (val as EntreePrix);
+  const redis = await getRedis();
+  return redis.get<EntreePrix>(`prix:${id}`);
 }
 
 async function kv_mettre_a_jour(
   id: string,
   modifications: Partial<EntreePrix>
 ): Promise<EntreePrix | null> {
-  const { kv } = await import('@vercel/kv');
   const existante = await kv_obtenir(id);
   if (!existante) return null;
 
+  const redis = await getRedis();
   const ancienStatut = existante.statut;
   const mise_a_jour: EntreePrix = { ...existante, ...modifications };
 
-  await kv.set(`prix:${id}`, JSON.stringify(mise_a_jour));
+  await redis.set(`prix:${id}`, mise_a_jour);
 
-  // Mettre à jour l'index de statut si nécessaire
-  if (modifications.statut && modifications.statut !== ancienStatut) {
-    // Retirer de l'ancien index en_attente
-    if (ancienStatut === 'en_attente') {
-      await kv.lrem('index:statut:en_attente', 0, id);
-    }
+  if (modifications.statut && modifications.statut !== ancienStatut && ancienStatut === 'en_attente') {
+    await redis.lrem('index:statut:en_attente', 0, id);
   }
 
   return mise_a_jour;
 }
 
 async function kv_supprimer(id: string): Promise<boolean> {
-  const { kv } = await import('@vercel/kv');
   const existante = await kv_obtenir(id);
   if (!existante) return false;
 
-  await kv.del(`prix:${id}`);
-  await kv.lrem('index:statut:en_attente', 0, id);
-  await kv.srem(`index:enseigne:${existante.enseigne}`, id);
-  await kv.srem(`index:categorie:${existante.produit_categorie}`, id);
+  const redis = await getRedis();
+  await redis.del(`prix:${id}`);
+  await redis.lrem('index:statut:en_attente', 0, id);
+  await redis.srem(`index:enseigne:${existante.enseigne}`, id);
+  await redis.srem(`index:categorie:${existante.produit_categorie}`, id);
 
   return true;
 }
@@ -243,12 +234,12 @@ function ls_supprimer(id: string): boolean {
 }
 
 // ============================================================
-// API publique — router vers KV ou localStorage
+// API publique — router vers Upstash ou localStorage
 // ============================================================
 
 export const storage = {
   async ajouter(entree: NouvelleEntree): Promise<EntreePrix> {
-    if (estVercelKVDisponible()) return kv_ajouter(entree);
+    if (estUpstashDisponible()) return kv_ajouter(entree);
     return ls_ajouter(entree);
   },
 
@@ -257,22 +248,22 @@ export const storage = {
     enseigne?: Enseigne;
     categorie?: Categorie;
   }): Promise<EntreePrix[]> {
-    if (estVercelKVDisponible()) return kv_lister(filtres);
+    if (estUpstashDisponible()) return kv_lister(filtres);
     return ls_lister(filtres);
   },
 
   async obtenir(id: string): Promise<EntreePrix | null> {
-    if (estVercelKVDisponible()) return kv_obtenir(id);
+    if (estUpstashDisponible()) return kv_obtenir(id);
     return ls_obtenir(id);
   },
 
   async mettreAJour(id: string, modifications: Partial<EntreePrix>): Promise<EntreePrix | null> {
-    if (estVercelKVDisponible()) return kv_mettre_a_jour(id, modifications);
+    if (estUpstashDisponible()) return kv_mettre_a_jour(id, modifications);
     return ls_mettre_a_jour(id, modifications);
   },
 
   async supprimer(id: string): Promise<boolean> {
-    if (estVercelKVDisponible()) return kv_supprimer(id);
+    if (estUpstashDisponible()) return kv_supprimer(id);
     return ls_supprimer(id);
   },
 
