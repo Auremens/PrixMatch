@@ -2,6 +2,7 @@
 
 import ContributionForm from '@/components/ContributionForm';
 import BottomNav from '@/components/BottomNav';
+import ThemeToggle from '@/components/ThemeToggle';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -15,9 +16,12 @@ export default function PageContribuer() {
       <div className="px-4 pt-12 pb-6">
         {/* En-tête */}
         <div className="mb-6">
-          <h1 className="font-display font-800 text-2xl text-texte tracking-tight mb-1">
-            Contribuer
-          </h1>
+          <div className="flex items-start justify-between mb-1">
+            <h1 className="font-display font-800 text-2xl text-texte tracking-tight">
+              Contribuer
+            </h1>
+            <ThemeToggle />
+          </div>
           <p className="text-secondaire text-sm">
             Partagez un prix relevé en magasin
           </p>
