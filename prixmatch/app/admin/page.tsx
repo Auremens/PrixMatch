@@ -4,9 +4,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminTable from '@/components/AdminTable';
 import ContributionForm from '@/components/ContributionForm';
+import RechercheView from '@/components/RechercheView';
 import type { EntreePrix } from '@/lib/storage';
 
-type Onglet = 'moderation' | 'contribuer' | 'gestion';
+type Onglet = 'moderation' | 'recherche' | 'contribuer' | 'gestion';
 
 export default function PageAdmin() {
   const [enAttente, setEnAttente] = useState<EntreePrix[]>([]);
@@ -92,6 +93,7 @@ export default function PageAdmin() {
       <div className="flex gap-2">
         {([
           { id: 'moderation', label: 'Modération' },
+          { id: 'recherche', label: '🔍 Recherche' },
           { id: 'contribuer', label: '+ Ajouter un prix' },
           { id: 'gestion', label: 'Gestion' },
         ] as { id: Onglet; label: string }[]).map((o) => (
@@ -128,6 +130,15 @@ export default function PageAdmin() {
           ) : (
             <AdminTable entrees={enAttente} onMiseAJour={chargerDonnees} />
           )}
+        </div>
+      )}
+
+      {onglet === 'recherche' && (
+        <div>
+          <h2 className="font-display font-700 text-sm uppercase tracking-wider text-secondaire mb-3">
+            Recherche — avec modération intégrée
+          </h2>
+          <RechercheView modeAdmin={true} />
         </div>
       )}
 
