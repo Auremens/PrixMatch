@@ -14,7 +14,7 @@ interface OngletNav {
 
 const ONGLETS: OngletNav[] = [
   {
-    href: '/',
+    href: '/rechercher',
     libelle: 'Rechercher',
     icone: '⊙',
     iconeActif: '◎',
@@ -44,7 +44,7 @@ export default function BottomNav() {
       <div className="flex h-16 items-center justify-around px-4">
         {ONGLETS.map((onglet) => {
           const estActif =
-            onglet.href === '/'
+            onglet.href === '/rechercher'
               ? pathname === '/'
               : pathname.startsWith(onglet.href);
 
