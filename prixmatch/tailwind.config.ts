@@ -1,4 +1,3 @@
-// tailwind.config.ts — Configuration Tailwind pour PrixMatch
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
@@ -10,11 +9,10 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ['var(--font-syne)', 'sans-serif'],
-        mono: ['var(--font-dm-mono)', 'monospace'],
+        display: ['"Syne"', 'system-ui', 'sans-serif'],
+        mono: ['"DM Mono"', 'ui-monospace', 'monospace'],
       },
       colors: {
-        // Toutes les couleurs référencées dans globals.css
         fond: 'var(--fond)',
         carte: 'var(--fond-carte)',
         input: 'var(--fond-input)',
