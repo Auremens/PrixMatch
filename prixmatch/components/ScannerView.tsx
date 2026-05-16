@@ -38,52 +38,20 @@ export default function ScannerView() {
       reader.readAsDataURL(fichier);
     });
 
-  // ---- Analyse du ticket via Claude Vision ----
+  // ---- Analyse du ticket via route API serveur ----
   const analyserAvecClaude = useCallback(async (base64: string, type: string) => {
-    const reponse = await fetch('https://api.anthropic.com/v1/messages', {
+    const reponse = await fetch('/api/scanner', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1500,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: type, data: base64 }
-            },
-            {
-              type: 'text',
-              text: `Analyse ce ticket de caisse et extrais les produits achetés.
-Réponds UNIQUEMENT en JSON valide, sans texte avant ou après, dans ce format exact :
-{
-  "enseigne": "nom de l'enseigne si visible, sinon null",
-  "produits": [
-    { "nom": "nom du produit", "prix": 1.99 },
-    { "nom": "autre produit", "prix": 0.89 }
-  ]
-}
-Règles :
-- Inclure uniquement les produits avec un prix clairement lisible
-- Ne pas inclure : total, sous-total, TVA, remises, avoir, fidélité, CB, espèces
-- Le prix doit être un nombre décimal (ex: 1.99, pas "1,99 €")
-- Si le prix n'est pas lisible, ne pas inclure le produit
-- Noms de produits tels qu'ils apparaissent sur le ticket`
-            }
-          ]
-        }]
-      })
+      body: JSON.stringify({ base64, type }),
     });
 
-    if (!reponse.ok) throw new Error(`API Claude : ${reponse.status}`);
-    const data = await reponse.json();
-    const texte = data.content?.[0]?.text ?? '';
+    if (!reponse.ok) {
+      const err = await reponse.json().catch(() => ({}));
+      throw new Error(err.erreur ?? `Erreur ${reponse.status}`);
+    }
 
-    // Parser le JSON retourné
-    const jsonMatch = texte.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Réponse non parseable');
-    return JSON.parse(jsonMatch[0]);
+    return reponse.json();
   }, []);
 
   // ---- Traitement de la photo ----
