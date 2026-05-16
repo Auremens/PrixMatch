@@ -172,15 +172,21 @@
   }
 
   .badge-statut-attente {
-    @apply bg-attente/10 text-attente text-xs font-display font-600 px-2 py-0.5 rounded-full;
+    background-color: rgba(251, 191, 36, 0.1);
+    color: var(--attente);
+    @apply text-xs font-display font-600 px-2 py-0.5 rounded-full;
   }
 
   .badge-statut-valide {
-    @apply bg-succes/10 text-succes text-xs font-display font-600 px-2 py-0.5 rounded-full;
+    background-color: rgba(74, 222, 128, 0.1);
+    color: var(--succes);
+    @apply text-xs font-display font-600 px-2 py-0.5 rounded-full;
   }
 
   .badge-statut-rejete {
-    @apply bg-erreur/10 text-erreur text-xs font-display font-600 px-2 py-0.5 rounded-full;
+    background-color: rgba(248, 113, 113, 0.1);
+    color: var(--erreur);
+    @apply text-xs font-display font-600 px-2 py-0.5 rounded-full;
   }
 
   /* ---- Prix ---- */
