@@ -194,8 +194,8 @@ export default function ScannerView() {
     );
   }
 
-  if (etat === 'edition') {
-    return (
+- if (etat === 'edition') {
++ if (etat === 'edition' || etat === 'envoi') {    return (
       <div className="space-y-4 animer-entree">
         {/* Alerte qualité médiocre */}
         {qualiteOCR === 'mediocre' && (
