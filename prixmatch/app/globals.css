@@ -179,7 +179,7 @@
 
   /* ---- Animation de chargement ---- */
   .skeleton {
-    @apply animate-pulse bg-fond-input rounded-lg;
+   @apply animate-pulse bg-input rounded-lg;
   }
 }
 
