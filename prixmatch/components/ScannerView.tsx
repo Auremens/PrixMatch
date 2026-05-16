@@ -4,7 +4,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { pretraiterImage, lancerOCR } from '@/lib/ocr';
-import { normaliserNom, calculerPrixReference, ENSEIGNES, CATEGORIES } from '@/lib/utils';
+import { normaliserNom, calculerPrixReference, ENSEIGNES_PREDEFINIES, ENSEIGNE_AUTRE } from '@/lib/utils';
 import type { LigneTicket } from '@/lib/ocr';
 import type { Enseigne, Categorie, Unite } from '@/lib/storage';
 
@@ -22,7 +22,8 @@ export default function ScannerView() {
   const [progresOCR, setProgresOCR] = useState(0);
   const [lignes, setLignes] = useState<LigneTicket[]>([]);
   const [qualiteOCR, setQualiteOCR] = useState<'bonne' | 'mediocre'>('bonne');
-  const [enseigne, setEnseigne] = useState<Enseigne | ''>('');
+  const [enseigne, setEnseigne] = useState<string>('');
+  const [enseignePersonnalisee, setEnseignePersonnalisee] = useState('');
   const [erreur, setErreur] = useState('');
   const [nbValides, setNbValides] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -92,8 +93,9 @@ export default function ScannerView() {
 
   // ---- Soumission groupée ----
   const soumettre = useCallback(async () => {
-    if (!enseigne) {
-      setErreur('Veuillez sélectionner une enseigne avant de valider');
+    const enseigneFinale = enseigne === ENSEIGNE_AUTRE ? enseignePersonnalisee.trim() : enseigne;
+    if (!enseigneFinale) {
+      setErreur('Veuillez sélectionner ou saisir une enseigne avant de valider');
       return;
     }
 
@@ -122,7 +124,7 @@ export default function ScannerView() {
               produit_nom_original: ligne.nomBrut.trim(),
               produit_categorie: 'autre' as Categorie,
               code_ean: null,
-              enseigne,
+              enseigne: enseigneFinale,
               prix_unitaire: prixUnitaire,
               prix_kg_litre: calculerPrixReference(prixUnitaire, quantite, unite),
               unite,
@@ -216,15 +218,26 @@ export default function ScannerView() {
               id="enseigne-scan"
               className="select-base pr-10"
               value={enseigne}
-              onChange={(e) => setEnseigne(e.target.value as Enseigne)}
+              onChange={(e) => setEnseigne(e.target.value)}
             >
               <option value="">Sélectionner l'enseigne</option>
-              {ENSEIGNES.map((e) => (
+              {ENSEIGNES_PREDEFINIES.map((e) => (
                 <option key={e} value={e}>{e}</option>
               ))}
+              <option value={ENSEIGNE_AUTRE}>+ Ajouter une enseigne…</option>
             </select>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none">▾</span>
           </div>
+          {enseigne === ENSEIGNE_AUTRE && (
+            <input
+              type="text"
+              className="input-base mt-2"
+              placeholder="Nom de l'enseigne (ex : Netto, Coopérative…)"
+              value={enseignePersonnalisee}
+              onChange={(e) => setEnseignePersonnalisee(e.target.value)}
+              autoFocus
+            />
+          )}
         </div>
 
         {/* Tableau des lignes extraites */}

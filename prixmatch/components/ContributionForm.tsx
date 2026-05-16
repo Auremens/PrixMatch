@@ -3,7 +3,7 @@
 // Après soumission : boutons Modifier et Annuler disponibles pendant 10 minutes
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { normaliserNom, calculerPrixReference, formaterPrix, ENSEIGNES, CATEGORIES, UNITES } from '@/lib/utils';
+import { normaliserNom, calculerPrixReference, formaterPrix, ENSEIGNES_PREDEFINIES, ENSEIGNE_AUTRE, CATEGORIES, UNITES } from '@/lib/utils';
 import { rechercherProduitsSimilaires } from '@/lib/matching';
 import type { EntreePrix, Enseigne, Categorie, Unite } from '@/lib/storage';
 
@@ -15,7 +15,8 @@ interface PropsContributionForm {
 
 export default function ContributionForm({ modeAdmin = false }: PropsContributionForm) {
   const [nomProduit, setNomProduit] = useState('');
-  const [enseigne, setEnseigne] = useState<Enseigne | ''>('');
+  const [enseigne, setEnseigne] = useState<string>('');
+  const [enseignePersonnalisee, setEnseignePersonnalisee] = useState('');
   const [prix, setPrix] = useState('');
   const [quantite, setQuantite] = useState('1');
   const [unite, setUnite] = useState<Unite>('pièce');
@@ -62,8 +63,11 @@ export default function ContributionForm({ modeAdmin = false }: PropsContributio
   };
 
   const soumettre = useCallback(async (idAMettreAJour?: string) => {
+    // Résoudre l'enseigne finale (prédéfinie ou personnalisée)
+    const enseigneFinale = enseigne === ENSEIGNE_AUTRE ? enseignePersonnalisee.trim() : enseigne;
+
     if (!nomProduit.trim()) { setErreurMessage('Le nom du produit est obligatoire'); return; }
-    if (!enseigne) { setErreurMessage('Veuillez sélectionner une enseigne'); return; }
+    if (!enseigneFinale) { setErreurMessage('Veuillez sélectionner ou saisir une enseigne'); return; }
     if (!prix || isNaN(prixNombre) || prixNombre <= 0) { setErreurMessage('Prix invalide'); return; }
     if (!categorie) { setErreurMessage('Veuillez sélectionner une catégorie'); return; }
 
@@ -76,7 +80,7 @@ export default function ContributionForm({ modeAdmin = false }: PropsContributio
         produit_nom_original: nomProduit.trim(),
         produit_categorie: categorie,
         code_ean: codeEan.trim() || null,
-        enseigne,
+        enseigne: enseigneFinale,
         prix_unitaire: prixNombre,
         prix_kg_litre: prixReference,
         unite,
@@ -216,12 +220,23 @@ export default function ContributionForm({ modeAdmin = false }: PropsContributio
       <div>
         <label className="label" htmlFor="enseigne">Enseigne *</label>
         <div className="relative">
-          <select id="enseigne" className="select-base pr-10" value={enseigne} onChange={(e) => setEnseigne(e.target.value as Enseigne)}>
+          <select id="enseigne" className="select-base pr-10" value={enseigne} onChange={(e) => setEnseigne(e.target.value)}>
             <option value="">Sélectionner une enseigne</option>
-            {ENSEIGNES.map((e) => <option key={e} value={e}>{e}</option>)}
+            {ENSEIGNES_PREDEFINIES.map((e) => <option key={e} value={e}>{e}</option>)}
+            <option value={ENSEIGNE_AUTRE}>+ Ajouter une enseigne…</option>
           </select>
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none">▾</span>
         </div>
+        {enseigne === ENSEIGNE_AUTRE && (
+          <input
+            type="text"
+            className="input-base mt-2"
+            placeholder="Nom de l'enseigne (ex : Netto, Coopérative…)"
+            value={enseignePersonnalisee}
+            onChange={(e) => setEnseignePersonnalisee(e.target.value)}
+            autoFocus
+          />
+        )}
       </div>
 
       {/* Prix + Quantité + Unité */}
