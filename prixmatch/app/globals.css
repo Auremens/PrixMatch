@@ -44,6 +44,26 @@
 }
 
 /* ============================================================
+   Thème clair
+   ============================================================ */
+[data-theme="light"] {
+  --fond: #f5f5f0;
+  --fond-carte: #ffffff;
+  --fond-input: #ececec;
+  --bord: #d4d4d4;
+  --bord-actif: #5a9e2f;
+  --texte: #111111;
+  --texte-secondaire: #555555;
+  --texte-tertiaire: #999999;
+  --accent: #5a9e2f;
+  --accent-sombre: #4a8225;
+  --accent-rgb: 90, 158, 47;
+  --succes: #16a34a;
+  --erreur: #dc2626;
+  --attente: #d97706;
+}
+
+/* ============================================================
    Base
    ============================================================ */
 @layer base {
@@ -179,7 +199,7 @@
 
   /* ---- Animation de chargement ---- */
   .skeleton {
-   @apply animate-pulse bg-input rounded-lg;
+    @apply animate-pulse bg-input rounded-lg;
   }
 }
 
