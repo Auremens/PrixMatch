@@ -21,6 +21,7 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
 const [filtreEnseigne, setFiltreEnseigne] = useState('');
 const [filtreCategorie, setFiltreCategorie] = useState('');
 const [afficherFiltres, setAfficherFiltres] = useState(false);
+  const [filtrePeriode, setFiltrePeriode] = useState<'7j' | '30j' | 'tout'>('tout');
   const [actionsEnCours, setActionsEnCours] = useState<Set<string>>(new Set());
 
   const charger = useCallback(async () => {
