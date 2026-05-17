@@ -5,8 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import PrixCard from '@/components/PrixCard';
 import { rechercherDansEntrees } from '@/lib/matching';
-import { formaterPrix, formaterDate } from '@/lib/utils';
-import { ENSEIGNES, CATEGORIES, iconeCategorie } from '@/lib/config';
+import { iconeCategorie, CATEGORIES_PREDEFINIES, ENSEIGNES_PREDEFINIES, formaterPrix, formaterDate } from '@/lib/utils';
 import type { EntreePrix, Enseigne, Categorie } from '@/lib/storage';
 
 type Periode = '7j' | '30j' | 'tout';
@@ -233,7 +232,7 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
             {resultats.map((entree, i) => (
               <PrixCard key={entree.id} entree={entree}
                 meilleurPrix={entree.id === idMeilleurPrix && recherche.length >= 2}
-                rang={i} />
+                rang={i} onMiseAJour={charger} />
             ))}
           </>
         )}
