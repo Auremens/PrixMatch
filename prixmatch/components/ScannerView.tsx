@@ -229,7 +229,7 @@ export default function ScannerView() {
             </select>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none">▾</span>
           </div>
-          {enseigne === ENSEIGNE_AUTRE && (
+          {enseigne === '__libre__' && (
             <input type="text" className="input-base mt-2"
               placeholder="Nom de l'enseigne" value={enseignePersonnalisee}
               onChange={e => setEnseignePersonnalisee(e.target.value)} autoFocus />
