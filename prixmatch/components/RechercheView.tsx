@@ -1,12 +1,13 @@
 'use client';
 // components/RechercheView.tsx — Vue de recherche réutilisable
-// En modeAdmin=true : affiche aussi les contributions en attente avec actions valider/rejeter
 
 import { useState, useEffect, useCallback } from 'react';
 import PrixCard from '@/components/PrixCard';
 import { rechercherDansEntrees } from '@/lib/matching';
 import { formaterPrix, formaterDate } from '@/lib/utils';
+import { ENSEIGNES, CATEGORIES, iconeCategorie } from '@/lib/config';
 import type { EntreePrix } from '@/lib/storage';
+
 type Periode = '7j' | '30j' | 'tout';
 
 interface PropsRechercheView {
@@ -18,10 +19,10 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
   const [entrees, setEntrees] = useState<EntreePrix[]>([]);
   const [enAttente, setEnAttente] = useState<EntreePrix[]>([]);
   const [chargement, setChargement] = useState(false);
-const [filtreEnseigne, setFiltreEnseigne] = useState('');
-const [filtreCategorie, setFiltreCategorie] = useState('');
-const [afficherFiltres, setAfficherFiltres] = useState(false);
-  const [filtrePeriode, setFiltrePeriode] = useState<'7j' | '30j' | 'tout'>('tout');
+  const [filtreEnseigne, setFiltreEnseigne] = useState('');
+  const [filtreCategorie, setFiltreCategorie] = useState('');
+  const [filtrePeriode, setFiltrePeriode] = useState<Periode>('tout');
+  const [afficherFiltres, setAfficherFiltres] = useState(false);
   const [actionsEnCours, setActionsEnCours] = useState<Set<string>>(new Set());
 
   const charger = useCallback(async () => {
@@ -29,10 +30,8 @@ const [afficherFiltres, setAfficherFiltres] = useState(false);
     try {
       const promesses = [fetch('/api/prix?statut=validé')];
       if (modeAdmin) promesses.push(fetch('/api/prix?statut=en_attente'));
-
       const reponses = await Promise.all(promesses);
       const [dataValide, dataAttente] = await Promise.all(reponses.map(r => r.json()));
-
       setEntrees(dataValide.entrees ?? []);
       if (modeAdmin) setEnAttente(dataAttente?.entrees ?? []);
     } catch {
@@ -44,7 +43,6 @@ const [afficherFiltres, setAfficherFiltres] = useState(false);
 
   useEffect(() => { charger(); }, [charger]);
 
-  // Action valider/rejeter depuis la vue recherche
   const agir = useCallback(async (id: string, action: 'valider' | 'rejeter') => {
     setActionsEnCours(prev => new Set([...prev, id]));
     try {
@@ -59,7 +57,6 @@ const [afficherFiltres, setAfficherFiltres] = useState(false);
     }
   }, [charger]);
 
-  // Filtrage des résultats validés
   const resultats = useCallback(() => {
     let res = entrees;
     if (filtreEnseigne) res = res.filter(e => e.enseigne === filtreEnseigne);
@@ -76,7 +73,6 @@ const [afficherFiltres, setAfficherFiltres] = useState(false);
     return res;
   }, [entrees, recherche, filtreEnseigne, filtreCategorie, filtrePeriode])();
 
-  // En mode admin : contributions en attente correspondant à la recherche
   const attentesFiltrees = modeAdmin && recherche.trim().length >= 2
     ? rechercherDansEntrees(recherche, enAttente)
     : modeAdmin ? enAttente : [];
@@ -140,9 +136,10 @@ const [afficherFiltres, setAfficherFiltres] = useState(false);
           <div className="mt-3 space-y-3 animer-entree">
             <div className="relative">
               <select className="select-base pr-10 text-sm" value={filtreEnseigne}
-                onChange={e => setFiltreEnseigne(e.target.value as Enseigne)}>
+                onChange={e => setFiltreEnseigne(e.target.value)}>
                 <option value="">Toutes les enseignes</option>
-onChange={e => setFiltreEnseigne(e.target.value)}>              </select>
+                {ENSEIGNES.map(e => <option key={e} value={e}>{e}</option>)}
+              </select>
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none">▾</span>
             </div>
             <div className="flex gap-2">
@@ -159,7 +156,7 @@ onChange={e => setFiltreEnseigne(e.target.value)}>              </select>
         )}
       </div>
 
-      {/* Section contributions en attente (admin uniquement) */}
+      {/* Contributions en attente (admin) */}
       {modeAdmin && attentesFiltrees.length > 0 && (
         <div className="mb-6">
           <h3 className="font-display font-700 text-xs uppercase tracking-wider text-attente mb-3">
@@ -167,7 +164,7 @@ onChange={e => setFiltreEnseigne(e.target.value)}>              </select>
           </h3>
           <div className="space-y-2">
             {attentesFiltrees.map(entree => (
-              <div key={entree.id} className="carte p-4 border-attente/30">
+              <div key={entree.id} className="carte p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -191,13 +188,11 @@ onChange={e => setFiltreEnseigne(e.target.value)}>              </select>
                       <button type="button"
                         onClick={() => agir(entree.id, 'valider')}
                         disabled={actionsEnCours.has(entree.id)}
-                        className="w-8 h-8 rounded-lg bg-succes/10 text-succes hover:bg-succes/20 transition-colors flex items-center justify-center text-sm font-700"
-                        aria-label="Valider">✓</button>
+                        className="w-8 h-8 rounded-lg bg-succes/10 text-succes hover:bg-succes/20 transition-colors flex items-center justify-center text-sm font-700">✓</button>
                       <button type="button"
                         onClick={() => agir(entree.id, 'rejeter')}
                         disabled={actionsEnCours.has(entree.id)}
-                        className="w-8 h-8 rounded-lg bg-erreur/10 text-erreur hover:bg-erreur/20 transition-colors flex items-center justify-center text-sm font-700"
-                        aria-label="Rejeter">✕</button>
+                        className="w-8 h-8 rounded-lg bg-erreur/10 text-erreur hover:bg-erreur/20 transition-colors flex items-center justify-center text-sm font-700">✕</button>
                     </div>
                   </div>
                 </div>
@@ -207,7 +202,7 @@ onChange={e => setFiltreEnseigne(e.target.value)}>              </select>
         </div>
       )}
 
-      {/* Résultats validés */}
+      {/* Résultats */}
       <div className="space-y-2">
         {chargement ? (
           Array.from({ length: 4 }).map((_, i) => (
@@ -230,7 +225,7 @@ onChange={e => setFiltreEnseigne(e.target.value)}>              </select>
             {resultats.map((entree, i) => (
               <PrixCard key={entree.id} entree={entree}
                 meilleurPrix={entree.id === idMeilleurPrix && recherche.length >= 2}
-                rang={i} onMiseAJour={charger} />
+                rang={i} modeAdmin={modeAdmin} onMiseAJour={charger} />
             ))}
           </>
         )}
