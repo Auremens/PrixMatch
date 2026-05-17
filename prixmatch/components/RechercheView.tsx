@@ -18,8 +18,9 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
   const [entrees, setEntrees] = useState<EntreePrix[]>([]);
   const [enAttente, setEnAttente] = useState<EntreePrix[]>([]);
   const [chargement, setChargement] = useState(false);
-const [filtreEnseigne, setFiltreEnseigne] = useState('');  const [filtreCategorie, setFiltreCategorie] = useState<Categorie | ''>('');
-const [filtreCategorie, setFiltreCategorie] = useState('');  const [afficherFiltres, setAfficherFiltres] = useState(false);
+const [filtreEnseigne, setFiltreEnseigne] = useState('');
+const [filtreCategorie, setFiltreCategorie] = useState('');
+const [afficherFiltres, setAfficherFiltres] = useState(false);
   const [actionsEnCours, setActionsEnCours] = useState<Set<string>>(new Set());
 
   const charger = useCallback(async () => {
