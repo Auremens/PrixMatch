@@ -140,8 +140,7 @@ const [filtreCategorie, setFiltreCategorie] = useState('');
           <div className="mt-3 space-y-3 animer-entree">
             <div className="relative">
               <select className="select-base pr-10 text-sm" value={filtreEnseigne}
-                onChange={e => setFiltreEnseigne(e.target.value as Enseigne)}>
-                <option value="">Toutes les enseignes</option>
+onChange={e => setFiltreEnseigne(e.target.value)}>                <option value="">Toutes les enseignes</option>
                 {ENSEIGNES.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none">▾</span>
