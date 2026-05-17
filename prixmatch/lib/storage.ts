@@ -8,14 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 // Types centraux
 // ============================================================
 
-export type Categorie =
-  | 'alimentaire'
-  | 'boissons'
-  | 'hygiène'
-  | 'entretien'
-  | 'bébé'
-  | 'animaux'
-  | 'autre';
+export type Categorie = string; // Catégories prédéfinies + catégories personnalisées
 
 export type Enseigne = string; // Enseignes prédéfinies + enseignes personnalisées
 

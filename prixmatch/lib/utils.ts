@@ -122,21 +122,15 @@ export function estDansLesNDerniersjours(dateIso: string, jours: number): boolea
 // Constantes utiles
 // ============================================================
 
-export const ENSEIGNES_PREDEFINIES = [
-  'Carrefour', 'Carrefour Market', 'Super U', 'Leclerc',
-  'Intermarché', 'Auchan', 'Lidl', 'Aldi', 'Monoprix',
-  'Franprix', 'Casino',
+// Enseignes et catégories → voir lib/config.ts
+
+export const CATEGORIES_PREDEFINIES = [
+  'alimentaire', 'boissons', 'hygiène', 'entretien',
+  'bébé', 'animaux',
 ] as const;
 
 // Valeur spéciale pour déclencher le champ texte libre
-export const ENSEIGNE_AUTRE = '__autre__';
 
-export const ENSEIGNES = [...ENSEIGNES_PREDEFINIES, ENSEIGNE_AUTRE] as const;
-
-export const CATEGORIES = [
-  'alimentaire', 'boissons', 'hygiène', 'entretien',
-  'bébé', 'animaux', 'autre',
-] as const;
 
 export const UNITES: { valeur: Unite; libelle: string }[] = [
   { valeur: 'kg', libelle: 'kg' },
@@ -147,12 +141,7 @@ export const UNITES: { valeur: Unite; libelle: string }[] = [
   { valeur: 'pièce', libelle: 'pièce(s)' },
 ];
 
-export const ICONES_CATEGORIES: Record<string, string> = {
-  alimentaire: '🥗',
-  boissons: '🥤',
-  hygiène: '🧴',
-  entretien: '🧹',
-  bébé: '👶',
-  animaux: '🐾',
-  autre: '📦',
-};
+
+
+// Icône par défaut pour les catégories personnalisées
+
