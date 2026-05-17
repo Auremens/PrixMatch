@@ -225,8 +225,7 @@ export default function ScannerView() {
             <select id="enseigne-scan" className="select-base pr-10" value={enseigne}
               onChange={e => setEnseigne(e.target.value)}>
               <option value="">Sélectionner l'enseigne</option>
-              {ENSEIGNES_PREDEFINIES.map(e => <option key={e} value={e}>{e}</option>)}
-              <option value="__libre__">✏️ Saisir manuellement…</option>
+{ENSEIGNES.map(e => <option key={e} value={e}>{e}</option>)}              <option value="__libre__">✏️ Saisir manuellement…</option>
             </select>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none">▾</span>
           </div>
