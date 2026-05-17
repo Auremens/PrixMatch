@@ -1,5 +1,7 @@
 'use client';
-// components/PrixCard.tsx — Carte prix avec modale d'édition inline
+// components/PrixCard.tsx — Carte prix
+// Clic normal → fiche produit comparaison
+// Bouton ✎ (admin uniquement) → modale d'édition
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -27,7 +29,6 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState('');
 
-  // Champs du formulaire d'édition
   const [nomProduit, setNomProduit] = useState(entree.produit_nom_original);
   const [enseigne, setEnseigne] = useState(entree.enseigne);
   const [prix, setPrix] = useState(String(entree.prix_unitaire).replace('.', ','));
@@ -40,9 +41,9 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
   const prixRef = !isNaN(prixNombre) && !isNaN(quantiteNombre)
     ? calculerPrixReference(prixNombre, quantiteNombre, unite) : null;
 
-  const ouvrir = (e: React.MouseEvent) => {
+  const ouvrirModale = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Réinitialiser les champs avec les valeurs actuelles
+    e.stopPropagation();
     setNomProduit(entree.produit_nom_original);
     setEnseigne(entree.enseigne);
     setPrix(String(entree.prix_unitaire).replace('.', ','));
@@ -61,7 +62,7 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
     setEnCours(true);
     setErreur('');
     try {
-      const reponse = await fetch(`/api/prix/${entree.id}`, {
+      const r = await fetch(`/api/prix/${entree.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -75,7 +76,7 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
           quantite: quantiteNombre,
         }),
       });
-      if (!reponse.ok) throw new Error();
+      if (!r.ok) throw new Error();
       setModale(false);
       onMiseAJour?.();
     } catch {
@@ -101,16 +102,13 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
 
   return (
     <>
-      {/* Carte cliquable */}
-      <div
-        className={`carte block p-4 transition-all duration-150 cursor-pointer active:scale-[0.98]
+      {/* Carte — clic normal vers fiche produit, bouton admin séparé */}
+      <Link
+        href={`/produit/${entree.id}`}
+        className={`carte block p-4 transition-all duration-150 active:scale-[0.98]
           ${meilleurPrix ? 'border-accent/40 bg-accent/5' : ''}
           animer-entree`}
         style={rang ? { animationDelay: `${rang * 0.05}s` } : {}}
-        onClick={ouvrir}
-        role="button"
-        tabIndex={0}
-        onKeyDown={e => e.key === 'Enter' && ouvrir(e as unknown as React.MouseEvent)}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
@@ -131,29 +129,43 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
               {entree.quantite} {entree.unite} · {formaterDate(entree.date_releve)}
             </p>
           </div>
-          <div className="text-right flex-shrink-0">
-            <p className="prix-principal">{formaterPrix(entree.prix_unitaire)}</p>
-            {entree.prix_kg_litre !== null && (
-              <p className="prix-reference mt-0.5">
-                {formaterPrix(entree.prix_kg_litre)}&nbsp;{libellePrixReference(entree.unite)}
-              </p>
+
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            <div className="text-right">
+              <p className="prix-principal">{formaterPrix(entree.prix_unitaire)}</p>
+              {entree.prix_kg_litre !== null && (
+                <p className="prix-reference mt-0.5">
+                  {formaterPrix(entree.prix_kg_litre)}&nbsp;{libellePrixReference(entree.unite)}
+                </p>
+              )}
+            </div>
+
+            {/* Bouton modifier visible uniquement en mode admin */}
+            {modeAdmin && (
+              <button
+                type="button"
+                onClick={ouvrirModale}
+                className="text-[10px] font-display font-600 text-accent border border-accent/40 px-2 py-1 rounded-lg hover:bg-accent/10 transition-colors"
+              >
+                ✎ Modifier
+              </button>
             )}
-            <p className="text-tertiaire text-[10px] font-display mt-1">✎ Modifier</p>
           </div>
         </div>
-      </div>
+      </Link>
 
-      {/* Modale d'édition */}
-      {modale && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4"
-          onClick={e => e.target === e.currentTarget && setModale(false)}>
-          {/* Fond semi-transparent */}
+      {/* Modale d'édition — admin uniquement */}
+      {modale && modeAdmin && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center"
+          onClick={e => { if (e.target === e.currentTarget) setModale(false); }}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setModale(false)} />
 
-          {/* Panneau */}
-          <div className="relative w-full sm:max-w-lg bg-fond-carte border border-bord rounded-t-3xl sm:rounded-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
-            {/* En-tête */}
-            <div className="flex items-center justify-between px-4 py-4 border-b border-bord sticky top-0 bg-fond-carte z-10">
+          {/* Panel avec hauteur fixe et scroll interne */}
+          <div className="relative w-full bg-fond-carte border-t border-bord rounded-t-3xl"
+            style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+
+            {/* En-tête fixe */}
+            <div className="flex items-center justify-between px-4 py-4 border-b border-bord flex-shrink-0">
               <h2 className="font-display font-700 text-sm text-texte">Modifier le prix</h2>
               <button type="button" onClick={() => setModale(false)}
                 className="w-8 h-8 rounded-xl bg-input flex items-center justify-center text-secondaire hover:text-texte transition-colors">
@@ -161,15 +173,15 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
               </button>
             </div>
 
-            <div className="p-4 space-y-4">
-              {/* Nom produit */}
+            {/* Corps scrollable */}
+            <div className="overflow-y-auto flex-1 p-4 space-y-4">
+
               <div>
                 <label className="label" htmlFor="edit-nom">Nom du produit *</label>
                 <input id="edit-nom" type="text" className="input-base"
                   value={nomProduit} onChange={e => setNomProduit(e.target.value)} />
               </div>
 
-              {/* Enseigne */}
               <div>
                 <label className="label" htmlFor="edit-enseigne">Enseigne *</label>
                 <div className="relative">
@@ -187,7 +199,6 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
                 )}
               </div>
 
-              {/* Prix + Quantité + Unité */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="label" htmlFor="edit-prix">Prix (€) *</label>
@@ -211,7 +222,6 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
                 </div>
               </div>
 
-              {/* Prix/kg calculé */}
               {prixRef !== null && (
                 <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-2 flex items-center justify-between">
                   <span className="text-xs font-display text-accent uppercase tracking-wider">Prix ramené</span>
@@ -221,7 +231,6 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
                 </div>
               )}
 
-              {/* Catégorie */}
               <div>
                 <label className="label" htmlFor="edit-cat">Catégorie *</label>
                 <div className="relative">
@@ -240,22 +249,22 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
               </div>
 
               {erreur && <p className="text-erreur text-sm font-display">{erreur}</p>}
+            </div>
 
-              {/* Actions */}
-              <div className="flex gap-3 pt-2">
-                <button type="button" className="btn-danger flex-shrink-0 px-4 py-3 text-sm"
-                  onClick={supprimer} disabled={enCours}>
-                  🗑 Supprimer
-                </button>
-                <button type="button" className="btn-secondaire flex-1 text-sm"
-                  onClick={() => setModale(false)} disabled={enCours}>
-                  Annuler
-                </button>
-                <button type="button" className="btn-primaire flex-1 text-sm"
-                  onClick={enregistrer} disabled={enCours}>
-                  {enCours ? '⟳' : '✓ Enregistrer'}
-                </button>
-              </div>
+            {/* Boutons fixes en bas */}
+            <div className="flex gap-3 p-4 border-t border-bord flex-shrink-0">
+              <button type="button" className="btn-danger px-4 py-3 text-sm flex-shrink-0"
+                onClick={supprimer} disabled={enCours}>
+                🗑
+              </button>
+              <button type="button" className="btn-secondaire flex-1 text-sm"
+                onClick={() => setModale(false)} disabled={enCours}>
+                Annuler
+              </button>
+              <button type="button" className="btn-primaire flex-1 text-sm"
+                onClick={enregistrer} disabled={enCours}>
+                {enCours ? '⟳' : '✓ Enregistrer'}
+              </button>
             </div>
           </div>
         </div>
