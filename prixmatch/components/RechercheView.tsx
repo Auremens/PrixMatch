@@ -5,8 +5,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import PrixCard from '@/components/PrixCard';
 import { rechercherDansEntrees } from '@/lib/matching';
-import { iconeCategorie, CATEGORIES_PREDEFINIES, ENSEIGNES_PREDEFINIES, formaterPrix, formaterDate } from '@/lib/utils';
-import type { EntreePrix } from '@/lib/storage';
+import { formaterPrix, formaterDate } from '@/lib/utils';
+import { ENSEIGNES, CATEGORIES, iconeCategorie } from '@/lib/config';import type { EntreePrix } from '@/lib/storage';
 type Periode = '7j' | '30j' | 'tout';
 
 interface PropsRechercheView {
