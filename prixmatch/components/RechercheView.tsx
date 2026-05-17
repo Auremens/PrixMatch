@@ -5,9 +5,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import PrixCard from '@/components/PrixCard';
 import { rechercherDansEntrees } from '@/lib/matching';
-import { iconeCategorie, CATEGORIES_PREDEFINIES, ENSEIGNES_PREDEFINIES, formaterPrix, formaterDate } from '@/lib/utils';
-import type { EntreePrix, Enseigne, Categorie } from '@/lib/storage';
-
+import { formaterPrix, formaterDate } from '@/lib/utils';
+import type { EntreePrix } from '@/lib/storage';
 type Periode = '7j' | '30j' | 'tout';
 
 interface PropsRechercheView {
@@ -19,10 +18,8 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
   const [entrees, setEntrees] = useState<EntreePrix[]>([]);
   const [enAttente, setEnAttente] = useState<EntreePrix[]>([]);
   const [chargement, setChargement] = useState(false);
-  const [filtreEnseigne, setFiltreEnseigne] = useState<Enseigne | ''>('');
-  const [filtreCategorie, setFiltreCategorie] = useState<Categorie | ''>('');
-  const [filtrePeriode, setFiltrePeriode] = useState<Periode>('tout');
-  const [afficherFiltres, setAfficherFiltres] = useState(false);
+const [filtreEnseigne, setFiltreEnseigne] = useState('');  const [filtreCategorie, setFiltreCategorie] = useState<Categorie | ''>('');
+const [filtreCategorie, setFiltreCategorie] = useState('');  const [afficherFiltres, setAfficherFiltres] = useState(false);
   const [actionsEnCours, setActionsEnCours] = useState<Set<string>>(new Set());
 
   const charger = useCallback(async () => {
@@ -143,8 +140,7 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
               <select className="select-base pr-10 text-sm" value={filtreEnseigne}
                 onChange={e => setFiltreEnseigne(e.target.value as Enseigne)}>
                 <option value="">Toutes les enseignes</option>
-                {ENSEIGNES.map(e => <option key={e} value={e}>{e}</option>)}
-              </select>
+onChange={e => setFiltreEnseigne(e.target.value)}>              </select>
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none">▾</span>
             </div>
             <div className="flex gap-2">
