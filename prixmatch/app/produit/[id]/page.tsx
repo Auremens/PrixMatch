@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { storage } from '@/lib/storage';
 import { formaterPrix, formaterDate, libellePrixReference, calculerPrixReference } from '@/lib/utils';
 import SparklineChart from '@/components/SparklineChart';
+import ComparaisonTableau from '@/components/ComparaisonTableau';
 import BottomNav from '@/components/BottomNav';
 import Link from 'next/link';
 import type { Metadata } from 'next';
@@ -83,115 +84,14 @@ export default async function PageProduit({ params }: Props) {
           </p>
         </div>
 
-        {/* Tableau de comparaison */}
+        {/* Tableau de comparaison — avec boutons modifier en mode admin */}
         {comparaison.length > 0 && (
-          <div className="carte overflow-hidden mb-4">
-            <div className="px-4 py-3 border-b border-bord flex items-center justify-between">
-              <h2 className="font-display font-700 text-sm text-texte">
-                Comparaison par enseigne
-              </h2>
-              {entree.prix_kg_litre !== null && (
-                <span className="text-tertiaire text-[10px] font-display uppercase tracking-wider">
-                  Trié par {libellePrixReference(entree.unite)}
-                </span>
-              )}
-            </div>
-
-            {/* En-tête du tableau */}
-            <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-4 py-2 border-b border-bord">
-              <span className="text-[10px] font-display font-600 uppercase tracking-wider text-tertiaire">Enseigne</span>
-              <span className="text-[10px] font-display font-600 uppercase tracking-wider text-tertiaire text-right">Prix</span>
-              <span className="text-[10px] font-display font-600 uppercase tracking-wider text-tertiaire text-right w-16">
-                {entree.prix_kg_litre !== null ? libellePrixReference(entree.unite) : 'Date'}
-              </span>
-            </div>
-
-            {/* Lignes */}
-            <div className="divide-y divide-bord">
-              {comparaison.map((h, i) => {
-                const estMeilleur = h.id === meilleur.id;
-                const ecartLigne = i > 0
-                  ? ((h.prix_unitaire - meilleur.prix_unitaire) / meilleur.prix_unitaire * 100).toFixed(0)
-                  : null;
-
-                return (
-                  <div
-                    key={h.id}
-                    className={`grid grid-cols-[1fr_auto_auto] gap-x-3 px-4 py-3 items-center transition-colors ${
-                      estMeilleur ? 'bg-accent/5' : ''
-                    }`}
-                  >
-                    {/* Enseigne + rang */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-[10px] font-mono w-4 flex-shrink-0 ${
-                        estMeilleur ? 'text-accent font-700' : 'text-tertiaire'
-                      }`}>
-                        {i + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <p className={`font-display font-600 text-sm truncate ${
-                          estMeilleur ? 'text-accent' : 'text-texte'
-                        }`}>
-                          {h.enseigne}
-                          {estMeilleur && (
-                            <span className="ml-1.5 text-[9px] bg-accent text-black px-1.5 py-0.5 rounded-full uppercase tracking-wider font-700">
-                              ✦ Moins cher
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-tertiaire text-[10px] font-mono">
-                          {h.quantite} {h.unite} · {formaterDate(h.date_releve)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Prix unitaire */}
-                    <div className="text-right">
-                      <p className={`font-mono font-500 text-base ${
-                        estMeilleur ? 'text-accent' : 'text-texte'
-                      }`}>
-                        {formaterPrix(h.prix_unitaire)}
-                      </p>
-                      {ecartLigne && (
-                        <p className="text-erreur text-[10px] font-mono">
-                          +{ecartLigne}%
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Prix/kg ou litre */}
-                    <div className="text-right w-16">
-                      {h.prix_kg_litre !== null ? (
-                        <p className={`font-mono text-xs ${
-                          estMeilleur ? 'text-accent' : 'text-secondaire'
-                        }`}>
-                          {formaterPrix(h.prix_kg_litre)}
-                        </p>
-                      ) : (
-                        <p className="text-tertiaire text-[10px] font-mono">—</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Résumé bas de tableau */}
-            {comparaison.length > 1 && (
-              <div className="px-4 py-3 border-t border-bord bg-carte">
-                <p className="text-secondaire text-xs font-display">
-                  Économie potentielle :{' '}
-                  <span className="text-accent font-600">
-                    {formaterPrix(plusCher.prix_unitaire - meilleur.prix_unitaire)}
-                  </span>
-                  {' '}entre{' '}
-                  <span className="text-texte">{meilleur.enseigne}</span>
-                  {' '}et{' '}
-                  <span className="text-texte">{plusCher.enseigne}</span>
-                </p>
-              </div>
-            )}
-          </div>
+          <ComparaisonTableau
+            comparaison={comparaison}
+            entreeRef={entree}
+            meilleurId={meilleur.id}
+            pluCherId={plusCher.id}
+          />
         )}
 
         {/* Sparkline historique */}
