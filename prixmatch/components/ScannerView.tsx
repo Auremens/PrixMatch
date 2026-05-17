@@ -3,7 +3,8 @@
 // Remplace Tesseract.js par un appel à claude-sonnet pour une extraction fiable
 
 import { useState, useRef, useCallback } from 'react';
-import { normaliserNom, calculerPrixReference, ENSEIGNES_PREDEFINIES, ENSEIGNE_AUTRE } from '@/lib/utils';
+import { normaliserNom, calculerPrixReference } from '@/lib/utils';
+import { ENSEIGNES } from '@/lib/config';
 import type { LigneTicket } from '@/lib/ocr';
 import type { Categorie, Unite } from '@/lib/storage';
 
@@ -81,13 +82,13 @@ export default function ScannerView() {
       // Pré-remplir l'enseigne si détectée
       if (resultat.enseigne) {
         const enseigneDetectee = resultat.enseigne;
-        const connue = ENSEIGNES_PREDEFINIES.find(
+        const connue = ENSEIGNES.find(
           e => e.toLowerCase() === enseigneDetectee.toLowerCase()
         );
         if (connue) {
           setEnseigne(connue);
         } else {
-          setEnseigne(ENSEIGNE_AUTRE);
+          setEnseigne('__libre__');
           setEnseignePersonnalisee(enseigneDetectee);
         }
       }
@@ -135,7 +136,7 @@ export default function ScannerView() {
 
   // ---- Soumission groupée ----
   const soumettre = useCallback(async () => {
-    const enseigneFinale = enseigne === ENSEIGNE_AUTRE ? enseignePersonnalisee.trim() : enseigne;
+    const enseigneFinale = enseigne === '__libre__' ? enseignePersonnalisee.trim() : enseigne;
     if (!enseigneFinale) { setErreur('Veuillez sélectionner ou saisir une enseigne'); return; }
 
     const selectionnees = lignes.filter(l => l.selectionne && l.nomBrut.trim().length >= 2);
@@ -225,7 +226,7 @@ export default function ScannerView() {
               onChange={e => setEnseigne(e.target.value)}>
               <option value="">Sélectionner l'enseigne</option>
               {ENSEIGNES_PREDEFINIES.map(e => <option key={e} value={e}>{e}</option>)}
-              <option value={ENSEIGNE_AUTRE}>+ Ajouter une enseigne…</option>
+              <option value="__libre__">✏️ Saisir manuellement…</option>
             </select>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none">▾</span>
           </div>

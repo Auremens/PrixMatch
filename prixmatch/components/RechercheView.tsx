@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import PrixCard from '@/components/PrixCard';
 import { rechercherDansEntrees } from '@/lib/matching';
-import { ICONES_CATEGORIES, CATEGORIES, ENSEIGNES_PREDEFINIES, formaterPrix, formaterDate } from '@/lib/utils';
+import { iconeCategorie, CATEGORIES_PREDEFINIES, ENSEIGNES_PREDEFINIES, formaterPrix, formaterDate } from '@/lib/utils';
 import type { EntreePrix, Enseigne, Categorie } from '@/lib/storage';
 
 type Periode = '7j' | '30j' | 'tout';
@@ -116,7 +116,7 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
                     : 'bg-carte border border-bord text-secondaire hover:border-accent hover:text-accent'
                 }`}
               >
-                <span>{ICONES_CATEGORIES[cat]}</span>
+                <span>{iconeCategorie(cat)}</span>
                 <span className="capitalize">{cat}</span>
               </button>
             ))}
@@ -143,7 +143,7 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
               <select className="select-base pr-10 text-sm" value={filtreEnseigne}
                 onChange={e => setFiltreEnseigne(e.target.value as Enseigne)}>
                 <option value="">Toutes les enseignes</option>
-                {ENSEIGNES_PREDEFINIES.map(e => <option key={e} value={e}>{e}</option>)}
+                {ENSEIGNES.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none">▾</span>
             </div>
