@@ -94,7 +94,7 @@ export async function creerSessionAdmin(
   if (hashSoumis !== hashAttendu) return null;
 
   // Payload : timestamp d'expiration (8h)
-  const expiration = Date.now() + 8 * 60 * 60 * 1000;
+  const expiration = Date.now() + 365 * 24 * 60 * 60 * 1000;
   const payload = `admin:${expiration}`;
 
   return signer(payload);
@@ -126,7 +126,7 @@ export function optionsCookie() {
     httpOnly: true,
     sameSite: 'strict' as const,
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 8 * 60 * 60, // 8 heures en secondes
+    maxAge: 365 * 24 * 60 * 60, // 1 an en secondes
     path: '/',
   };
 }
