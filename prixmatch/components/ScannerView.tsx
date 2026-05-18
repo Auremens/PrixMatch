@@ -373,45 +373,79 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [actif, setActif] = useState(false);
   const [erreurCam, setErreurCam] = useState('');
-  const scannerRef = useRef<unknown>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const demarrer = async () => {
     setErreurCam('');
     try {
-      // Import dynamique pour éviter les erreurs SSR
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+      });
+      streamRef.current = stream;
+
+      if (!videoRef.current) return;
+      videoRef.current.srcObject = stream;
+      videoRef.current.setAttribute('playsinline', 'true');
+      await videoRef.current.play();
+      setActif(true);
+
+      // Import dynamique ZXing
       const { BrowserMultiFormatReader } = await import('@zxing/library');
       const reader = new BrowserMultiFormatReader();
-      scannerRef.current = reader;
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
 
-      if (videoRef.current) {
-        setActif(true);
-        // decodeFromVideoDevice : null = caméra par défaut, utilise la caméra arrière
-        reader.decodeFromVideoDevice(null, videoRef.current, (result, err) => {
-          if (result) {
-            const ean = result.getText();
-            arreter();
-            onDetecte(ean);
+      const scanner = () => {
+        if (!video || video.readyState < 2) {
+          animRef.current = requestAnimationFrame(scanner);
+          return;
+        }
+        if (canvas) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0);
+            try {
+              const result = reader.decodeFromCanvas(canvas);
+              if (result) {
+                const ean = result.getText();
+                arreter();
+                onDetecte(ean);
+                return;
+              }
+            } catch {
+              // Pas de code détecté sur cette frame — continuer
+            }
           }
-        });
-      }
+        }
+        animRef.current = requestAnimationFrame(scanner);
+      };
+
+      animRef.current = requestAnimationFrame(scanner);
     } catch (e: unknown) {
       const msg = (e as Error)?.message ?? '';
-      if (msg.includes('Permission') || msg.includes('NotAllowed')) {
-        setErreurCam('Accès à la caméra refusé. Autorise l\'accès dans les paramètres.');
+      if (msg.includes('NotAllowed') || msg.includes('Permission')) {
+        setErreurCam("Accès à la caméra refusé. Autorise l'accès dans les paramètres du navigateur.");
+      } else if (msg.includes('NotFound')) {
+        setErreurCam("Aucune caméra détectée sur cet appareil.");
       } else {
-        setErreurCam('Impossible d\'ouvrir la caméra.');
+        setErreurCam("Impossible d'ouvrir la caméra : " + msg);
       }
     }
   };
 
   const arreter = () => {
-    if (scannerRef.current && typeof (scannerRef.current as {reset?: () => void}).reset === 'function') {
-      (scannerRef.current as {reset: () => void}).reset();
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
     }
     setActif(false);
   };
 
-  // Nettoyage au démontage
   useEffect(() => { return () => arreter(); }, []);
 
   if (actif) {
@@ -419,6 +453,7 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
       <div className="space-y-3">
         <div className="relative rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '4/3' }}>
           <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+          <canvas ref={canvasRef} className="hidden" />
           {/* Viseur central */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-56 h-32 border-2 border-accent rounded-xl opacity-80">
