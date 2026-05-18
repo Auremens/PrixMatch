@@ -135,10 +135,15 @@ export default function ContributionForm({ modeAdmin = false }: Props) {
       <div className="relative">
         <label className="label" htmlFor="nom-produit">Nom du produit *</label>
         <input ref={inputRef} id="nom-produit" type="text" className="input-base"
-          placeholder="Ex : Lait demi-écrémé Lactel 1L" value={nomProduit}
+          placeholder="Ex : Escalope de poulet" value={nomProduit}
           onChange={e => { setNomProduit(e.target.value); setSuggestionActive(true); }}
           onBlur={() => setTimeout(() => setSuggestionActive(false), 150)}
           autoComplete="off" />
+        <p className="text-tertiaire text-[11px] font-display mt-1.5 leading-relaxed">
+          💡 Utilise un nom <span className="text-secondaire">générique et court</span> pour regrouper les prix entre enseignes.<br />
+          ✓ "Escalope de poulet" · "Lait demi-écrémé 1L" · "Beurre doux 250g"<br />
+          ✗ Évite : la marque, l'enseigne ou la mention du prix dans le nom
+        </p>
         {suggestionActive && suggestions.length > 0 && (
           <ul className="absolute top-full left-0 right-0 z-20 bg-carte border border-bord rounded-xl mt-1 overflow-hidden shadow-xl">
             {suggestions.map(s => (
