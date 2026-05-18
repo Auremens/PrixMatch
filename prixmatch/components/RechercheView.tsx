@@ -23,6 +23,7 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
   const [filtreCategorie, setFiltreCategorie] = useState('');
   const [filtrePeriode, setFiltrePeriode] = useState<Periode>('tout');
   const [afficherFiltres, setAfficherFiltres] = useState(false);
+  const [tri, setTri] = useState<'date' | 'prix_asc' | 'prix_desc' | 'nom_asc'>('date');
   const [actionsEnCours, setActionsEnCours] = useState<Set<string>>(new Set());
 
   const charger = useCallback(async () => {
@@ -67,11 +68,16 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
     }
     if (recherche.trim().length >= 2) {
       res = rechercherDansEntrees(recherche, res);
-    } else {
-      res = [...res].sort((a, b) => new Date(b.date_releve).getTime() - new Date(a.date_releve).getTime());
     }
+    // Tri
+    res = [...res].sort((a, b) => {
+      if (tri === 'prix_asc') return a.prix_unitaire - b.prix_unitaire;
+      if (tri === 'prix_desc') return b.prix_unitaire - a.prix_unitaire;
+      if (tri === 'nom_asc') return a.produit_nom_original.localeCompare(b.produit_nom_original, 'fr');
+      return new Date(b.date_releve).getTime() - new Date(a.date_releve).getTime();
+    });
     return res;
-  }, [entrees, recherche, filtreEnseigne, filtreCategorie, filtrePeriode])();
+  }, [entrees, recherche, filtreEnseigne, filtreCategorie, filtrePeriode, tri])();
 
   const attentesFiltrees = modeAdmin && recherche.trim().length >= 2
     ? rechercherDansEntrees(recherche, enAttente)
@@ -119,18 +125,36 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
         </div>
       )}
 
-      {/* Filtres avancés */}
+      {/* Filtres avancés + Tri */}
       <div className="mb-4">
-        <button type="button"
-          onClick={() => setAfficherFiltres(v => !v)}
-          className="flex items-center gap-2 text-secondaire text-xs font-display hover:text-texte transition-colors"
-        >
-          <span>{afficherFiltres ? '▲' : '▼'}</span>
-          Filtres avancés
-          {(filtreEnseigne || filtrePeriode !== 'tout') && (
-            <span className="bg-accent/20 text-accent px-1.5 py-0.5 rounded-full text-[10px]">actifs</span>
-          )}
-        </button>
+        <div className="flex items-center justify-between">
+          <button type="button"
+            onClick={() => setAfficherFiltres(v => !v)}
+            className="flex items-center gap-2 text-secondaire text-xs font-display hover:text-texte transition-colors"
+          >
+            <span>{afficherFiltres ? '▲' : '▼'}</span>
+            Filtres avancés
+            {(filtreEnseigne || filtrePeriode !== 'tout') && (
+              <span className="bg-accent/20 text-accent px-1.5 py-0.5 rounded-full text-[10px]">actifs</span>
+            )}
+          </button>
+
+          {/* Sélecteur de tri */}
+          <div className="relative">
+            <select
+              className="text-xs font-display text-secondaire bg-transparent border border-bord rounded-lg pl-2 pr-6 py-1.5 appearance-none hover:border-accent hover:text-accent transition-colors cursor-pointer"
+              value={tri}
+              onChange={e => setTri(e.target.value as 'date' | 'prix_asc' | 'prix_desc' | 'nom_asc')}
+              aria-label="Trier par"
+            >
+              <option value="date">↓ Plus récent</option>
+              <option value="prix_asc">↑ Prix croissant</option>
+              <option value="prix_desc">↓ Prix décroissant</option>
+              <option value="nom_asc">A→Z Nom</option>
+            </select>
+            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none text-[10px]">▾</span>
+          </div>
+        </div>
 
         {afficherFiltres && (
           <div className="mt-3 space-y-3 animer-entree">
