@@ -199,7 +199,7 @@ export default function ScannerView() {
     );
   }
 
-  if (etat === 'formulaire' && produit) {
+  if ((etat === 'formulaire' || etat === 'envoi') && produit) {
     const prixNombre = parseFloat(prix.replace(',', '.'));
     const quantiteNombre = parseFloat(quantite.replace(',', '.'));
     const prixRef = !isNaN(prixNombre) && !isNaN(quantiteNombre)
