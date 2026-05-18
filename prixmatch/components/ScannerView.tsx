@@ -373,7 +373,6 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [actif, setActif] = useState(false);
   const [erreurCam, setErreurCam] = useState('');
-  const streamRef = useRef<MediaStream | null>(null);
   const scannerRef = useRef<unknown>(null);
 
   const demarrer = async () => {
@@ -384,18 +383,10 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
       const reader = new BrowserMultiFormatReader();
       scannerRef.current = reader;
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
-      streamRef.current = stream;
-
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
         setActif(true);
-
-        // Lancer le scan en continu
-        reader.decodeFromVideoElement(videoRef.current, (result, err) => {
+        // decodeFromVideoDevice : null = caméra par défaut, utilise la caméra arrière
+        reader.decodeFromVideoDevice(null, videoRef.current, (result, err) => {
           if (result) {
             const ean = result.getText();
             arreter();
@@ -414,10 +405,6 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
   };
 
   const arreter = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
     if (scannerRef.current && typeof (scannerRef.current as {reset?: () => void}).reset === 'function') {
       (scannerRef.current as {reset: () => void}).reset();
     }
