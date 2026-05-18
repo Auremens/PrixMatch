@@ -367,111 +367,86 @@ export default function ScannerView() {
 }
 
 // ============================================================
-// Composant caméra — décode les codes-barres en temps réel
+// Composant caméra — html5-qrcode (fiable sur mobile)
 // ============================================================
 function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [actif, setActif] = useState(false);
   const [erreurCam, setErreurCam] = useState('');
-  const streamRef = useRef<MediaStream | null>(null);
-  const animRef = useRef<unknown>(null);
+  const scannerRef = useRef<unknown>(null);
+  const divId = 'html5-qrcode-reader';
 
   const demarrer = async () => {
     setErreurCam('');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
-      });
-      streamRef.current = stream;
+      const { Html5Qrcode } = await import('html5-qrcode');
+      const scanner = new Html5Qrcode(divId);
+      scannerRef.current = scanner;
 
-      if (!videoRef.current) return;
-      videoRef.current.srcObject = stream;
-      videoRef.current.setAttribute('playsinline', 'true');
-      await videoRef.current.play();
+      await scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        (decodedText) => {
+          arreter();
+          onDetecte(decodedText);
+        },
+        () => { /* erreur frame normale — ignorer */ }
+      );
       setActif(true);
-
-      // Import dynamique ZXing — scan en boucle via setInterval
-      const { BrowserMultiFormatReader, NotFoundException } = await import('@zxing/library');
-      const reader = new BrowserMultiFormatReader();
-      const video = videoRef.current;
-
-      const intervalId = setInterval(async () => {
-        if (!video || video.readyState < 2) return;
-        try {
-          const result = await reader.decodeFromVideoElement(video);
-          if (result) {
-            clearInterval(intervalId);
-            arreter();
-            onDetecte(result.getText());
-          }
-        } catch (e) {
-          // NotFoundException = pas de code sur cette frame, normal
-          if (!(e instanceof NotFoundException)) {
-            clearInterval(intervalId);
-          }
-        }
-      }, 200);
-
-      // Stocker l'interval pour pouvoir l'arrêter
-      (animRef as React.MutableRefObject<unknown>).current = intervalId;
     } catch (e: unknown) {
-      const msg = (e as Error)?.message ?? '';
-      if (msg.includes('NotAllowed') || msg.includes('Permission')) {
-        setErreurCam("Accès à la caméra refusé. Autorise l'accès dans les paramètres du navigateur.");
-      } else if (msg.includes('NotFound')) {
-        setErreurCam("Aucune caméra détectée sur cet appareil.");
+      const msg = (e as Error)?.message ?? String(e);
+      if (msg.includes('NotAllowed') || msg.includes('Permission') || msg.includes('permission')) {
+        setErreurCam("Accès à la caméra refusé. Autorise l'accès dans les paramètres.");
+      } else if (msg.includes('NotFound') || msg.includes('Requested device not found')) {
+        setErreurCam("Aucune caméra détectée.");
       } else {
-        setErreurCam("Impossible d'ouvrir la caméra : " + msg);
+        setErreurCam("Erreur caméra : " + msg);
       }
     }
   };
 
-  const arreter = () => {
-    if (animRef.current) clearInterval(animRef.current as ReturnType<typeof setInterval>);
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
+  const arreter = async () => {
+    if (scannerRef.current) {
+      try {
+        const s = scannerRef.current as { stop: () => Promise<void>; clear: () => void };
+        await s.stop();
+        s.clear();
+      } catch { /* déjà arrêté */ }
+      scannerRef.current = null;
     }
     setActif(false);
   };
 
-  useEffect(() => { return () => arreter(); }, []);
-
-  if (actif) {
-    return (
-      <div className="space-y-3">
-        <div className="relative rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '4/3' }}>
-          <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-          {/* Viseur central */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-56 h-32 border-2 border-accent rounded-xl opacity-80">
-              <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-accent rounded-tl-xl" />
-              <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-accent rounded-tr-xl" />
-              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-accent rounded-bl-xl" />
-              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-accent rounded-br-xl" />
-            </div>
-          </div>
-          {/* Ligne de scan animée */}
-          <div className="absolute inset-x-8 top-1/2 h-0.5 bg-accent opacity-60 animate-pulse" />
-        </div>
-        <p className="text-secondaire text-xs font-display text-center">
-          Pointe vers le code-barres du produit
-        </p>
-        <button type="button" className="btn-secondaire w-full text-sm" onClick={arreter}>
-          Annuler
-        </button>
-      </div>
-    );
-  }
+  useEffect(() => { return () => { arreter(); }; }, []);
 
   return (
-    <div className="space-y-2">
-      <button type="button" className="btn-primaire w-full flex items-center justify-center gap-2"
-        onClick={demarrer}>
-        <span className="text-lg">📷</span>
-        Scanner avec la caméra
-      </button>
-      {erreurCam && <p className="text-erreur text-xs font-display">{erreurCam}</p>}
+    <div className="space-y-3">
+      {/* Div cible pour html5-qrcode */}
+      <div
+        id={divId}
+        className={actif ? 'rounded-xl overflow-hidden' : 'hidden'}
+        style={{ width: '100%' }}
+      />
+
+      {!actif ? (
+        <div className="space-y-2">
+          <button type="button"
+            className="btn-primaire w-full flex items-center justify-center gap-2"
+            onClick={demarrer}>
+            <span className="text-lg">📷</span>
+            Scanner avec la caméra
+          </button>
+          {erreurCam && <p className="text-erreur text-xs font-display">{erreurCam}</p>}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-secondaire text-xs font-display text-center">
+            Pointe vers le code-barres du produit
+          </p>
+          <button type="button" className="btn-secondaire w-full text-sm" onClick={arreter}>
+            Annuler
+          </button>
+        </div>
+      )}
     </div>
   );
 }
