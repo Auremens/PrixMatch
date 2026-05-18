@@ -367,67 +367,153 @@ export default function ScannerView() {
 }
 
 // ============================================================
-// Composant caméra — html5-qrcode (fiable sur mobile)
+// Composant caméra — BarcodeDetector API native + fallback input file
 // ============================================================
 function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [actif, setActif] = useState(false);
   const [erreurCam, setErreurCam] = useState('');
-  const scannerRef = useRef<unknown>(null);
-  const divId = 'html5-qrcode-reader';
+  const [supporte, setSupporte] = useState<boolean | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Vérifier si BarcodeDetector est disponible
+  useEffect(() => {
+    setSupporte('BarcodeDetector' in window);
+  }, []);
 
   const demarrer = async () => {
     setErreurCam('');
     try {
-      const { Html5Qrcode } = await import('html5-qrcode');
-      const scanner = new Html5Qrcode(divId);
-      scannerRef.current = scanner;
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      streamRef.current = stream;
 
-      await scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 150 } },
-        (decodedText) => {
-          arreter();
-          onDetecte(decodedText);
-        },
-        () => { /* erreur frame normale — ignorer */ }
-      );
+      if (!videoRef.current) return;
+      videoRef.current.srcObject = stream;
+      videoRef.current.setAttribute('playsinline', 'true');
+      videoRef.current.setAttribute('autoplay', 'true');
+      videoRef.current.muted = true;
+      await videoRef.current.play();
       setActif(true);
+
+      // BarcodeDetector API native (Chrome Android, Safari 17+)
+      if ('BarcodeDetector' in window) {
+        // @ts-ignore
+        const detector = new window.BarcodeDetector({
+          formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
+        });
+
+        intervalRef.current = setInterval(async () => {
+          if (!videoRef.current || videoRef.current.readyState < 2) return;
+          try {
+            // @ts-ignore
+            const barcodes = await detector.detect(videoRef.current);
+            if (barcodes.length > 0) {
+              const ean = barcodes[0].rawValue;
+              arreter();
+              onDetecte(ean);
+            }
+          } catch { /* frame sans code */ }
+        }, 300);
+      }
     } catch (e: unknown) {
       const msg = (e as Error)?.message ?? String(e);
-      if (msg.includes('NotAllowed') || msg.includes('Permission') || msg.includes('permission')) {
-        setErreurCam("Accès à la caméra refusé. Autorise l'accès dans les paramètres.");
-      } else if (msg.includes('NotFound') || msg.includes('Requested device not found')) {
+      if (msg.includes('NotAllowed') || msg.includes('Permission')) {
+        setErreurCam("Accès caméra refusé. Autorise l'accès dans les paramètres du navigateur.");
+      } else if (msg.includes('NotFound')) {
         setErreurCam("Aucune caméra détectée.");
       } else {
-        setErreurCam("Erreur caméra : " + msg);
+        setErreurCam("Erreur : " + msg);
       }
     }
   };
 
-  const arreter = async () => {
-    if (scannerRef.current) {
-      try {
-        const s = scannerRef.current as { stop: () => Promise<void>; clear: () => void };
-        await s.stop();
-        s.clear();
-      } catch { /* déjà arrêté */ }
-      scannerRef.current = null;
+  const arreter = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
     }
+    if (videoRef.current) videoRef.current.srcObject = null;
     setActif(false);
   };
 
-  useEffect(() => { return () => { arreter(); }; }, []);
+  useEffect(() => () => arreter(), []);
+
+  // Fallback : input file pour les navigateurs sans BarcodeDetector
+  const scannerFichier = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fichier = e.target.files?.[0];
+    if (!fichier) return;
+    // Créer une image et utiliser BarcodeDetector dessus
+    const url = URL.createObjectURL(fichier);
+    const img = new Image();
+    img.onload = async () => {
+      URL.revokeObjectURL(url);
+      if ('BarcodeDetector' in window) {
+        try {
+          // @ts-ignore
+          const detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'qr_code'] });
+          // @ts-ignore
+          const barcodes = await detector.detect(img);
+          if (barcodes.length > 0) onDetecte(barcodes[0].rawValue);
+          else setErreurCam("Aucun code-barres détecté dans l'image.");
+        } catch { setErreurCam("Échec de la détection."); }
+      }
+    };
+    img.src = url;
+    e.target.value = '';
+  };
 
   return (
     <div className="space-y-3">
-      {/* Div cible pour html5-qrcode */}
-      <div
-        id={divId}
-        className={actif ? 'rounded-xl overflow-hidden' : 'hidden'}
-        style={{ width: '100%' }}
-      />
+      {/* Flux vidéo */}
+      <div className={`relative rounded-xl overflow-hidden bg-black ${actif ? 'block' : 'hidden'}`}
+        style={{ aspectRatio: '4/3' }}>
+        <video
+          ref={videoRef}
+          className="w-full h-full object-cover"
+          playsInline
+          muted
+          autoPlay
+        />
+        {/* Viseur */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="relative w-64 h-36 border-2 border-accent rounded-xl">
+            <div className="absolute top-0 left-0 w-5 h-5 border-t-4 border-l-4 border-accent rounded-tl" />
+            <div className="absolute top-0 right-0 w-5 h-5 border-t-4 border-r-4 border-accent rounded-tr" />
+            <div className="absolute bottom-0 left-0 w-5 h-5 border-b-4 border-l-4 border-accent rounded-bl" />
+            <div className="absolute bottom-0 right-0 w-5 h-5 border-b-4 border-r-4 border-accent rounded-br" />
+          </div>
+        </div>
+        {/* Ligne animée */}
+        <div className="absolute left-8 right-8 h-0.5 bg-accent/70 animate-pulse"
+          style={{ top: '50%' }} />
+      </div>
 
-      {!actif ? (
+      {actif && (
+        <div className="space-y-2">
+          {!('BarcodeDetector' in window) && (
+            <p className="text-attente text-xs font-display text-center">
+              ⚠ Détection automatique non supportée sur ce navigateur.<br/>
+              Utilise la saisie manuelle.
+            </p>
+          )}
+          <p className="text-secondaire text-xs font-display text-center">
+            Centre le code-barres dans le cadre vert
+          </p>
+          <button type="button" className="btn-secondaire w-full text-sm" onClick={arreter}>
+            Annuler
+          </button>
+        </div>
+      )}
+
+      {!actif && (
         <div className="space-y-2">
           <button type="button"
             className="btn-primaire w-full flex items-center justify-center gap-2"
@@ -435,16 +521,15 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
             <span className="text-lg">📷</span>
             Scanner avec la caméra
           </button>
+
+          {/* Fallback : photo depuis galerie */}
+          <label className="btn-secondaire w-full flex items-center justify-center gap-2 cursor-pointer">
+            <span>🖼</span>
+            Photo depuis la galerie
+            <input type="file" accept="image/*" className="hidden" onChange={scannerFichier} />
+          </label>
+
           {erreurCam && <p className="text-erreur text-xs font-display">{erreurCam}</p>}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <p className="text-secondaire text-xs font-display text-center">
-            Pointe vers le code-barres du produit
-          </p>
-          <button type="button" className="btn-secondaire w-full text-sm" onClick={arreter}>
-            Annuler
-          </button>
         </div>
       )}
     </div>
