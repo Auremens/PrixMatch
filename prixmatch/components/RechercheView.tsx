@@ -23,7 +23,10 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
   const [filtreCategorie, setFiltreCategorie] = useState('');
   const [filtrePeriode, setFiltrePeriode] = useState<Periode>('tout');
   const [afficherFiltres, setAfficherFiltres] = useState(false);
-  const [tri, setTri] = useState<'date' | 'prix_asc' | 'prix_desc' | 'nom_asc'>('date');
+  const [tri, setTri] = useState<'date' | 'prix_asc' | 'prix_desc' | 'nom_asc'>(() => {
+    if (typeof window === 'undefined') return 'date';
+    return (localStorage.getItem('prixmatch_tri') as 'date' | 'prix_asc' | 'prix_desc' | 'nom_asc') ?? 'date';
+  });
   const [actionsEnCours, setActionsEnCours] = useState<Set<string>>(new Set());
 
   const charger = useCallback(async () => {
@@ -144,7 +147,11 @@ export default function RechercheView({ modeAdmin = false }: PropsRechercheView)
             <select
               className="text-xs font-display text-secondaire bg-transparent border border-bord rounded-lg pl-2 pr-6 py-1.5 appearance-none hover:border-accent hover:text-accent transition-colors cursor-pointer"
               value={tri}
-              onChange={e => setTri(e.target.value as 'date' | 'prix_asc' | 'prix_desc' | 'nom_asc')}
+              onChange={e => {
+                const val = e.target.value as 'date' | 'prix_asc' | 'prix_desc' | 'nom_asc';
+                setTri(val);
+                localStorage.setItem('prixmatch_tri', val);
+              }}
               aria-label="Trier par"
             >
               <option value="date">↓ Plus récent</option>
