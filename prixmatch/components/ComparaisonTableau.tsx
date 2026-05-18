@@ -172,7 +172,7 @@ function LigneComparaison({ entree, rang, estMeilleur, ecart }: {
         }),
       });
       setSucces(true);
-    } catch { setErreur('Erreur lors de l'envoi'); }
+    } catch { setErreur("Erreur lors de l'envoi"); }
     finally { setEnCours(false); }
   };
 
