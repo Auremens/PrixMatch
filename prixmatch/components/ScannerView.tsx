@@ -316,20 +316,26 @@ export default function ScannerView() {
   // ---- Écran d'accueil scanner ----
   return (
     <div className="space-y-4">
-      <div className="carte p-6 text-center">
-        <div className="w-20 h-20 mx-auto mb-4 bg-accent/10 rounded-2xl flex items-center justify-center border-2 border-dashed border-accent/40">
-          <span className="text-3xl">▦</span>
+      <div className="carte overflow-hidden">
+        <div className="p-4 border-b border-bord">
+          <h2 className="font-display font-700 text-base text-texte">Scanner un code-barres</h2>
+          <p className="text-secondaire text-xs mt-0.5">Caméra ou saisie manuelle</p>
         </div>
-        <h2 className="font-display font-700 text-base text-texte mb-2">
-          Scanner un code-barres
-        </h2>
-        <p className="text-secondaire text-sm mb-6">
-          Saisis le code-barres du produit pour récupérer automatiquement son nom et sa catégorie.
-        </p>
 
-        {/* Saisie manuelle du code-barres */}
-        <div className="text-left space-y-2">
-          <label className="label" htmlFor="ean-input">Code-barres (EAN)</label>
+        {/* Bouton caméra */}
+        <div className="p-4 border-b border-bord">
+          <ScannerCamera onDetecte={rechercherProduit} />
+        </div>
+
+        {/* Séparateur */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="flex-1 h-px bg-bord" />
+          <span className="text-tertiaire text-xs font-display">ou saisir manuellement</span>
+          <div className="flex-1 h-px bg-bord" />
+        </div>
+
+        {/* Saisie manuelle */}
+        <div className="px-4 pb-4 space-y-2">
           <div className="flex gap-2">
             <input
               ref={inputEanRef}
@@ -337,12 +343,11 @@ export default function ScannerView() {
               type="text"
               inputMode="numeric"
               className="input-base font-mono flex-1"
-              placeholder="Ex : 3017620422003"
+              placeholder="Code-barres (ex : 3017620422003)"
               value={codeEanSaisi}
               onChange={e => setCodeEanSaisi(e.target.value.replace(/\D/g, ''))}
               onKeyDown={e => e.key === 'Enter' && rechercherProduit(codeEanSaisi)}
               maxLength={14}
-              autoFocus
             />
             <button
               type="button"
@@ -353,30 +358,110 @@ export default function ScannerView() {
               →
             </button>
           </div>
-          <p className="text-tertiaire text-xs font-display">
-            Le code-barres se trouve sous les barres verticales sur l'emballage du produit
-          </p>
         </div>
 
-        {erreur && <p className="text-erreur text-sm font-display mt-3 text-left">{erreur}</p>}
+        {erreur && <p className="text-erreur text-sm font-display px-4 pb-4">{erreur}</p>}
       </div>
+    </div>
+  );
+}
 
-      <div className="carte p-4 space-y-2">
-        <h3 className="font-display font-700 text-xs uppercase tracking-wider text-secondaire mb-3">
-          Comment ça marche
-        </h3>
-        {[
-          ['▦', 'Saisis le code-barres de l\'emballage'],
-          ['🏷️', 'Le nom et la catégorie sont récupérés automatiquement'],
-          ['💶', 'Tu n\'as qu\'à saisir le prix et l\'enseigne'],
-          ['✦', 'Contribution envoyée en quelques secondes'],
-        ].map(([icone, texte]) => (
-          <div key={texte} className="flex items-center gap-3">
-            <span className="text-base flex-shrink-0">{icone}</span>
-            <span className="text-secondaire text-sm">{texte}</span>
+// ============================================================
+// Composant caméra — décode les codes-barres en temps réel
+// ============================================================
+function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [actif, setActif] = useState(false);
+  const [erreurCam, setErreurCam] = useState('');
+  const streamRef = useRef<MediaStream | null>(null);
+  const scannerRef = useRef<unknown>(null);
+
+  const demarrer = async () => {
+    setErreurCam('');
+    try {
+      // Import dynamique pour éviter les erreurs SSR
+      const { BrowserMultiFormatReader } = await import('@zxing/library');
+      const reader = new BrowserMultiFormatReader();
+      scannerRef.current = reader;
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        setActif(true);
+
+        // Lancer le scan en continu
+        reader.decodeFromVideoElement(videoRef.current, (result, err) => {
+          if (result) {
+            const ean = result.getText();
+            arreter();
+            onDetecte(ean);
+          }
+        });
+      }
+    } catch (e: unknown) {
+      const msg = (e as Error)?.message ?? '';
+      if (msg.includes('Permission') || msg.includes('NotAllowed')) {
+        setErreurCam('Accès à la caméra refusé. Autorise l\'accès dans les paramètres.');
+      } else {
+        setErreurCam('Impossible d\'ouvrir la caméra.');
+      }
+    }
+  };
+
+  const arreter = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (scannerRef.current && typeof (scannerRef.current as {reset?: () => void}).reset === 'function') {
+      (scannerRef.current as {reset: () => void}).reset();
+    }
+    setActif(false);
+  };
+
+  // Nettoyage au démontage
+  useEffect(() => { return () => arreter(); }, []);
+
+  if (actif) {
+    return (
+      <div className="space-y-3">
+        <div className="relative rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '4/3' }}>
+          <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+          {/* Viseur central */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-56 h-32 border-2 border-accent rounded-xl opacity-80">
+              <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-accent rounded-tl-xl" />
+              <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-accent rounded-tr-xl" />
+              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-accent rounded-bl-xl" />
+              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-accent rounded-br-xl" />
+            </div>
           </div>
-        ))}
+          {/* Ligne de scan animée */}
+          <div className="absolute inset-x-8 top-1/2 h-0.5 bg-accent opacity-60 animate-pulse" />
+        </div>
+        <p className="text-secondaire text-xs font-display text-center">
+          Pointe vers le code-barres du produit
+        </p>
+        <button type="button" className="btn-secondaire w-full text-sm" onClick={arreter}>
+          Annuler
+        </button>
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <button type="button" className="btn-primaire w-full flex items-center justify-center gap-2"
+        onClick={demarrer}>
+        <span className="text-lg">📷</span>
+        Scanner avec la caméra
+      </button>
+      {erreurCam && <p className="text-erreur text-xs font-display">{erreurCam}</p>}
     </div>
   );
 }
