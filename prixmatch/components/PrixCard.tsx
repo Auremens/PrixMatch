@@ -1,12 +1,11 @@
 'use client';
-// components/PrixCard.tsx — Carte prix
-// Clic normal → fiche produit comparaison
-// Bouton ✎ (admin uniquement) → modale d'édition
+// components/PrixCard.tsx
+// - Utilisateur : clic → modale légère pour proposer un nouveau prix
+// - Admin : bouton ✎ → modale complète pour modifier toutes les données
 
 import { useState } from 'react';
-import Link from 'next/link';
 import type { EntreePrix, Unite } from '@/lib/storage';
-import { formaterPrix, formaterDate, libellePrixReference, calculerPrixReference, UNITES } from '@/lib/utils';
+import { formaterPrix, formaterDate, libellePrixReference, calculerPrixReference, UNITES, normaliserNom } from '@/lib/utils';
 import { ENSEIGNES, CATEGORIES } from '@/lib/config';
 
 interface Props {
@@ -25,10 +24,18 @@ const COULEURS_ENSEIGNES: Record<string, string> = {
 };
 
 export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin = false, onMiseAJour }: Props) {
-  const [modale, setModale] = useState(false);
+  const [modale, setModale] = useState<'user' | 'admin' | null>(null);
   const [enCours, setEnCours] = useState(false);
+  const [succes, setSucces] = useState(false);
   const [erreur, setErreur] = useState('');
 
+  // Champs modale utilisateur (allégée)
+  const [nouveauPrix, setNouveauPrix] = useState(String(entree.prix_unitaire).replace('.', ','));
+  const [nouvelleEnseigne, setNouvelleEnseigne] = useState(entree.enseigne);
+  const [nouvelleQuantite, setNouvelleQuantite] = useState(String(entree.quantite));
+  const [nouvelleUnite, setNouvelleUnite] = useState<Unite>(entree.unite);
+
+  // Champs modale admin (complète)
   const [nomProduit, setNomProduit] = useState(entree.produit_nom_original);
   const [enseigne, setEnseigne] = useState(entree.enseigne);
   const [prix, setPrix] = useState(String(entree.prix_unitaire).replace('.', ','));
@@ -36,14 +43,27 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
   const [unite, setUnite] = useState<Unite>(entree.unite);
   const [categorie, setCategorie] = useState(entree.produit_categorie);
 
-  const prixNombre = parseFloat(prix.replace(',', '.'));
-  const quantiteNombre = parseFloat(quantite.replace(',', '.'));
-  const prixRef = !isNaN(prixNombre) && !isNaN(quantiteNombre)
-    ? calculerPrixReference(prixNombre, quantiteNombre, unite) : null;
+  const prixNombreUser = parseFloat(nouveauPrix.replace(',', '.'));
+  const qtNombreUser = parseFloat(nouvelleQuantite.replace(',', '.'));
+  const prixRefUser = !isNaN(prixNombreUser) && !isNaN(qtNombreUser)
+    ? calculerPrixReference(prixNombreUser, qtNombreUser, nouvelleUnite) : null;
 
-  const ouvrirModale = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const prixNombreAdmin = parseFloat(prix.replace(',', '.'));
+  const qtNombreAdmin = parseFloat(quantite.replace(',', '.'));
+  const prixRefAdmin = !isNaN(prixNombreAdmin) && !isNaN(qtNombreAdmin)
+    ? calculerPrixReference(prixNombreAdmin, qtNombreAdmin, unite) : null;
+
+  const ouvrirUser = () => {
+    setNouveauPrix(String(entree.prix_unitaire).replace('.', ','));
+    setNouvelleEnseigne(entree.enseigne);
+    setNouvelleQuantite(String(entree.quantite));
+    setNouvelleUnite(entree.unite);
+    setSucces(false); setErreur('');
+    setModale('user');
+  };
+
+  const ouvrirAdmin = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
     setNomProduit(entree.produit_nom_original);
     setEnseigne(entree.enseigne);
     setPrix(String(entree.prix_unitaire).replace('.', ','));
@@ -51,34 +71,62 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
     setUnite(entree.unite);
     setCategorie(entree.produit_categorie);
     setErreur('');
-    setModale(true);
+    setModale('admin');
   };
 
-  const enregistrer = async () => {
-    if (!nomProduit.trim() || !enseigne.trim() || isNaN(prixNombre) || prixNombre <= 0) {
-      setErreur('Tous les champs obligatoires doivent être remplis');
-      return;
+  // Utilisateur — soumet une nouvelle contribution en attente
+  const proposerModification = async () => {
+    if (isNaN(prixNombreUser) || prixNombreUser <= 0) { setErreur('Prix invalide'); return; }
+    if (!nouvelleEnseigne.trim()) { setErreur('Enseigne obligatoire'); return; }
+    setEnCours(true); setErreur('');
+    try {
+      await fetch('/api/prix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          produit_nom: normaliserNom(entree.produit_nom_original),
+          produit_nom_original: entree.produit_nom_original,
+          produit_categorie: entree.produit_categorie,
+          code_ean: entree.code_ean,
+          enseigne: nouvelleEnseigne.trim(),
+          prix_unitaire: prixNombreUser,
+          prix_kg_litre: prixRefUser,
+          unite: nouvelleUnite,
+          quantite: qtNombreUser,
+          date_releve: new Date().toISOString(),
+          source: 'manuel',
+        }),
+      });
+      setSucces(true);
+    } catch {
+      setErreur('Erreur lors de l\'envoi');
+    } finally {
+      setEnCours(false);
     }
-    setEnCours(true);
-    setErreur('');
+  };
+
+  // Admin — modifie directement l'entrée existante
+  const enregistrerAdmin = async () => {
+    if (!nomProduit.trim() || !enseigne.trim() || isNaN(prixNombreAdmin) || prixNombreAdmin <= 0) {
+      setErreur('Champs obligatoires manquants'); return;
+    }
+    setEnCours(true); setErreur('');
     try {
       const r = await fetch(`/api/prix/${entree.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           produit_nom_original: nomProduit.trim(),
-          produit_nom: nomProduit.trim().normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim(),
+          produit_nom: normaliserNom(nomProduit),
           produit_categorie: categorie,
           enseigne: enseigne.trim(),
-          prix_unitaire: prixNombre,
-          prix_kg_litre: prixRef,
-          unite,
-          quantite: quantiteNombre,
+          prix_unitaire: prixNombreAdmin,
+          prix_kg_litre: prixRefAdmin,
+          unite, quantite: qtNombreAdmin,
         }),
       });
       if (!r.ok) throw new Error();
-      setModale(false);
-      onMiseAJour?.();
+      setModale(null); onMiseAJour?.();
     } catch {
       setErreur('Erreur lors de la sauvegarde');
     } finally {
@@ -91,23 +139,18 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
     setEnCours(true);
     try {
       await fetch(`/api/prix/${entree.id}`, { method: 'DELETE' });
-      setModale(false);
-      onMiseAJour?.();
-    } finally {
-      setEnCours(false);
-    }
+      setModale(null); onMiseAJour?.();
+    } finally { setEnCours(false); }
   };
 
   const couleurEnseigne = COULEURS_ENSEIGNES[entree.enseigne] ?? '#555';
 
   return (
     <>
-      {/* Carte — clic normal vers fiche produit, bouton admin séparé */}
-      <Link
-        href={`/produit/${entree.id}`}
-        className={`carte block p-4 transition-all duration-150 active:scale-[0.98]
-          ${meilleurPrix ? 'border-accent/40 bg-accent/5' : ''}
-          animer-entree`}
+      {/* Carte — clic → fiche produit comparaison */}
+      <div
+        className={`carte block p-4 transition-all duration-150
+          ${meilleurPrix ? 'border-accent/40 bg-accent/5' : ''} animer-entree`}
         style={rang ? { animationDelay: `${rang * 0.05}s` } : {}}
       >
         <div className="flex items-start justify-between gap-3">
@@ -129,7 +172,6 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
               {entree.quantite} {entree.unite} · {formaterDate(entree.date_releve)}
             </p>
           </div>
-
           <div className="flex flex-col items-end gap-2 flex-shrink-0">
             <div className="text-right">
               <p className="prix-principal">{formaterPrix(entree.prix_unitaire)}</p>
@@ -139,53 +181,150 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
                 </p>
               )}
             </div>
-
-            {/* Bouton modifier visible uniquement en mode admin */}
-            {modeAdmin && (
-              <button
-                type="button"
-                onClick={ouvrirModale}
-                className="text-[10px] font-display font-600 text-accent border border-accent/40 px-2 py-1 rounded-lg hover:bg-accent/10 transition-colors"
-              >
-                ✎ Modifier
+            <div className="flex items-center gap-1.5">
+              <a href={`/produit/${entree.id}`}
+                className="text-[10px] font-display text-tertiaire border border-bord px-2 py-1 rounded-lg hover:border-accent hover:text-accent transition-colors">
+                Comparer
+              </a>
+              <button type="button" onClick={ouvrirUser}
+                className="text-[10px] font-display text-accent border border-accent/40 px-2 py-1 rounded-lg hover:bg-accent/10 transition-colors">
+                ✎ Prix
               </button>
-            )}
+              {modeAdmin && (
+                <button type="button" onClick={ouvrirAdmin}
+                  className="text-[10px] font-display font-600 text-attente border border-attente/40 px-2 py-1 rounded-lg hover:bg-attente/10 transition-colors">
+                  ⚙
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </Link>
+      </div>
 
-      {/* Modale d'édition — admin uniquement */}
-      {modale && modeAdmin && (
+      {/* ---- Modale utilisateur (légère) ---- */}
+      {modale === 'user' && (
         <div className="fixed inset-0 z-50 flex items-end justify-center"
-          onClick={e => { if (e.target === e.currentTarget) setModale(false); }}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setModale(false)} />
-
-          {/* Panel avec hauteur fixe et scroll interne */}
+          onClick={e => { if (e.target === e.currentTarget) setModale(null); }}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setModale(null)} />
           <div className="relative w-full bg-fond-carte border-t border-bord rounded-t-3xl"
             style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
 
-            {/* En-tête fixe */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-bord flex-shrink-0">
-              <h2 className="font-display font-700 text-sm text-texte">Modifier le prix</h2>
-              <button type="button" onClick={() => setModale(false)}
-                className="w-8 h-8 rounded-xl bg-input flex items-center justify-center text-secondaire hover:text-texte transition-colors">
-                ✕
-              </button>
+              <div>
+                <h2 className="font-display font-700 text-sm text-texte">Proposer un nouveau prix</h2>
+                <p className="text-tertiaire text-xs font-display mt-0.5">{entree.produit_nom_original}</p>
+              </div>
+              <button type="button" onClick={() => setModale(null)}
+                className="w-8 h-8 rounded-xl bg-input flex items-center justify-center text-secondaire">✕</button>
             </div>
 
-            {/* Corps scrollable */}
             <div className="overflow-y-auto flex-1 p-4 space-y-4">
+              {succes ? (
+                <div className="text-center py-6 space-y-3">
+                  <div className="text-3xl">✦</div>
+                  <p className="font-display font-700 text-accent">Proposition envoyée !</p>
+                  <p className="text-secondaire text-sm">Elle sera visible après validation.</p>
+                  <button type="button" className="btn-secondaire w-full" onClick={() => setModale(null)}>Fermer</button>
+                </div>
+              ) : (
+                <>
+                  {/* Enseigne */}
+                  <div>
+                    <label className="label" htmlFor="user-enseigne">Enseigne *</label>
+                    <div className="relative">
+                      <select id="user-enseigne" className="select-base pr-10"
+                        value={ENSEIGNES.includes(nouvelleEnseigne) ? nouvelleEnseigne : '__libre__'}
+                        onChange={e => { if (e.target.value !== '__libre__') setNouvelleEnseigne(e.target.value); else setNouvelleEnseigne(''); }}>
+                        {ENSEIGNES.map(e => <option key={e} value={e}>{e}</option>)}
+                        <option value="__libre__">✏️ Autre…</option>
+                      </select>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none">▾</span>
+                    </div>
+                    {!ENSEIGNES.includes(nouvelleEnseigne) && (
+                      <input type="text" className="input-base mt-2" placeholder="Nom de l'enseigne"
+                        value={nouvelleEnseigne} onChange={e => setNouvelleEnseigne(e.target.value)} />
+                    )}
+                  </div>
 
+                  {/* Prix + Quantité + Unité */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="label" htmlFor="user-prix">Prix (€) *</label>
+                      <input id="user-prix" type="text" inputMode="decimal" className="input-base font-mono"
+                        value={nouveauPrix} onChange={e => setNouveauPrix(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label" htmlFor="user-qte">Qté</label>
+                      <input id="user-qte" type="text" inputMode="decimal" className="input-base font-mono"
+                        value={nouvelleQuantite} onChange={e => setNouvelleQuantite(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label" htmlFor="user-unite">Unité</label>
+                      <div className="relative">
+                        <select id="user-unite" className="select-base pr-8 text-xs" value={nouvelleUnite}
+                          onChange={e => setNouvelleUnite(e.target.value as Unite)}>
+                          {UNITES.map(u => <option key={u.valeur} value={u.valeur}>{u.libelle}</option>)}
+                        </select>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-tertiaire pointer-events-none text-xs">▾</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Prix/kg calculé */}
+                  {prixRefUser !== null && (
+                    <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-2 flex items-center justify-between">
+                      <span className="text-xs font-display text-accent uppercase tracking-wider">Prix ramené</span>
+                      <span className="font-mono text-accent font-500">
+                        {formaterPrix(prixRefUser)}/{['kg', 'g'].includes(nouvelleUnite) ? 'kg' : 'L'}
+                      </span>
+                    </div>
+                  )}
+
+                  {erreur && <p className="text-erreur text-sm font-display">{erreur}</p>}
+
+                  <p className="text-tertiaire text-xs font-display">
+                    Votre proposition sera visible après validation par notre équipe.
+                  </p>
+                </>
+              )}
+            </div>
+
+            {!succes && (
+              <div className="flex gap-3 p-4 border-t border-bord flex-shrink-0">
+                <button type="button" className="btn-secondaire flex-1" onClick={() => setModale(null)}>Annuler</button>
+                <button type="button" className="btn-primaire flex-1" onClick={proposerModification} disabled={enCours}>
+                  {enCours ? '⟳' : 'Proposer ce prix'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ---- Modale admin (complète) ---- */}
+      {modale === 'admin' && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center"
+          onClick={e => { if (e.target === e.currentTarget) setModale(null); }}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setModale(null)} />
+          <div className="relative w-full bg-fond-carte border-t border-bord rounded-t-3xl"
+            style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+
+            <div className="flex items-center justify-between px-4 py-4 border-b border-bord flex-shrink-0">
+              <h2 className="font-display font-700 text-sm text-texte">Modifier (admin)</h2>
+              <button type="button" onClick={() => setModale(null)}
+                className="w-8 h-8 rounded-xl bg-input flex items-center justify-center text-secondaire">✕</button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-4 space-y-4">
               <div>
-                <label className="label" htmlFor="edit-nom">Nom du produit *</label>
-                <input id="edit-nom" type="text" className="input-base"
-                  value={nomProduit} onChange={e => setNomProduit(e.target.value)} />
+                <label className="label">Nom du produit *</label>
+                <input type="text" className="input-base" value={nomProduit} onChange={e => setNomProduit(e.target.value)} />
               </div>
 
               <div>
-                <label className="label" htmlFor="edit-enseigne">Enseigne *</label>
+                <label className="label">Enseigne *</label>
                 <div className="relative">
-                  <select id="edit-enseigne" className="select-base pr-10"
+                  <select className="select-base pr-10"
                     value={ENSEIGNES.includes(enseigne) ? enseigne : '__libre__'}
                     onChange={e => { if (e.target.value !== '__libre__') setEnseigne(e.target.value); else setEnseigne(''); }}>
                     {ENSEIGNES.map(e => <option key={e} value={e}>{e}</option>)}
@@ -201,19 +340,19 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="label" htmlFor="edit-prix">Prix (€) *</label>
-                  <input id="edit-prix" type="text" inputMode="decimal" className="input-base font-mono"
+                  <label className="label">Prix (€) *</label>
+                  <input type="text" inputMode="decimal" className="input-base font-mono"
                     value={prix} onChange={e => setPrix(e.target.value)} />
                 </div>
                 <div>
-                  <label className="label" htmlFor="edit-qte">Qté *</label>
-                  <input id="edit-qte" type="text" inputMode="decimal" className="input-base font-mono"
+                  <label className="label">Qté *</label>
+                  <input type="text" inputMode="decimal" className="input-base font-mono"
                     value={quantite} onChange={e => setQuantite(e.target.value)} />
                 </div>
                 <div>
-                  <label className="label" htmlFor="edit-unite">Unité *</label>
+                  <label className="label">Unité *</label>
                   <div className="relative">
-                    <select id="edit-unite" className="select-base pr-8 text-xs" value={unite}
+                    <select className="select-base pr-8 text-xs" value={unite}
                       onChange={e => setUnite(e.target.value as Unite)}>
                       {UNITES.map(u => <option key={u.valeur} value={u.valeur}>{u.libelle}</option>)}
                     </select>
@@ -222,19 +361,19 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
                 </div>
               </div>
 
-              {prixRef !== null && (
+              {prixRefAdmin !== null && (
                 <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-2 flex items-center justify-between">
                   <span className="text-xs font-display text-accent uppercase tracking-wider">Prix ramené</span>
                   <span className="font-mono text-accent font-500">
-                    {formaterPrix(prixRef)}/{['kg', 'g'].includes(unite) ? 'kg' : 'L'}
+                    {formaterPrix(prixRefAdmin)}/{['kg', 'g'].includes(unite) ? 'kg' : 'L'}
                   </span>
                 </div>
               )}
 
               <div>
-                <label className="label" htmlFor="edit-cat">Catégorie *</label>
+                <label className="label">Catégorie *</label>
                 <div className="relative">
-                  <select id="edit-cat" className="select-base pr-10"
+                  <select className="select-base pr-10"
                     value={CATEGORIES.includes(categorie) ? categorie : '__libre__'}
                     onChange={e => { if (e.target.value !== '__libre__') setCategorie(e.target.value); else setCategorie(''); }}>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
@@ -251,18 +390,13 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
               {erreur && <p className="text-erreur text-sm font-display">{erreur}</p>}
             </div>
 
-            {/* Boutons fixes en bas */}
             <div className="flex gap-3 p-4 border-t border-bord flex-shrink-0">
               <button type="button" className="btn-danger px-4 py-3 text-sm flex-shrink-0"
-                onClick={supprimer} disabled={enCours}>
-                🗑
-              </button>
+                onClick={supprimer} disabled={enCours}>🗑</button>
               <button type="button" className="btn-secondaire flex-1 text-sm"
-                onClick={() => setModale(false)} disabled={enCours}>
-                Annuler
-              </button>
+                onClick={() => setModale(null)} disabled={enCours}>Annuler</button>
               <button type="button" className="btn-primaire flex-1 text-sm"
-                onClick={enregistrer} disabled={enCours}>
+                onClick={enregistrerAdmin} disabled={enCours}>
                 {enCours ? '⟳' : '✓ Enregistrer'}
               </button>
             </div>
