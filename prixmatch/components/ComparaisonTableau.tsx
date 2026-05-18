@@ -20,17 +20,7 @@ export default function ComparaisonTableau({ comparaison, entreeRef, meilleurId,
   const [estAdmin, setEstAdmin] = useState(false);
   const [donnees, setDonnees] = useState<EntreePrix[]>(comparaison);
 
-  // Vérifier si l'utilisateur est admin en testant une route protégée
-  useEffect(() => {
-    fetch('/api/admin/valider', { method: 'GET' })
-      .then(r => { if (r.status !== 405 && r.status !== 401) setEstAdmin(true); })
-      .catch(() => {});
-    // 405 = Method Not Allowed (route existe, pas admin)
-    // 401 = non authentifié
-    // 200 ou autre = admin connecté
-  }, []);
-
-  // Vérifier l'admin via un endpoint dédié
+  // Vérifier si l'utilisateur est admin
   useEffect(() => {
     fetch('/api/admin/check')
       .then(r => r.json())
@@ -49,8 +39,15 @@ export default function ComparaisonTableau({ comparaison, entreeRef, meilleurId,
     setDonnees(nouvelles);
   };
 
-  const meilleur = donnees[0];
-  const plusCher = donnees[donnees.length - 1];
+  // Calculer le vrai meilleur et plus cher en comparant les prix (indépendant du tri)
+  const meilleur = donnees.length > 0
+    ? donnees.reduce((min, e) => (e.prix_kg_litre ?? e.prix_unitaire) < (min.prix_kg_litre ?? min.prix_unitaire) ? e : min)
+    : null;
+  const plusCher = donnees.length > 0
+    ? donnees.reduce((max, e) => (e.prix_kg_litre ?? e.prix_unitaire) > (max.prix_kg_litre ?? max.prix_unitaire) ? e : max)
+    : null;
+  // Trier les données par prix croissant pour l'affichage
+  const donneesTriees = [...donnees].sort((a, b) => (a.prix_kg_litre ?? a.prix_unitaire) - (b.prix_kg_litre ?? b.prix_unitaire));
 
   if (!estAdmin) {
     // Vue lecture seule — tableau simple
@@ -74,7 +71,7 @@ export default function ComparaisonTableau({ comparaison, entreeRef, meilleurId,
         </div>
 
         <div className="divide-y divide-bord">
-          {donnees.map((h, i) => {
+          {donneesTriees.map((h, i) => {
             const estMeilleur = meilleur && h.id === meilleur.id;
             const ecartLigne = i > 0 && meilleur
               ? ((h.prix_unitaire - meilleur.prix_unitaire) / meilleur.prix_unitaire * 100).toFixed(0)
@@ -85,7 +82,7 @@ export default function ComparaisonTableau({ comparaison, entreeRef, meilleurId,
           })}
         </div>
 
-        {donnees.length > 1 && meilleur && plusCher && (
+        {donneesTriees.length > 1 && meilleur && plusCher && (
           <div className="px-4 py-3 border-t border-bord bg-carte">
             <p className="text-secondaire text-xs font-display">
               Économie potentielle :{' '}
@@ -107,7 +104,7 @@ export default function ComparaisonTableau({ comparaison, entreeRef, meilleurId,
         <span className="text-[10px] text-attente font-display uppercase tracking-wider">⚙ Mode admin</span>
       </div>
       <div className="space-y-2">
-        {donnees.map((h, i) => (
+        {donneesTriees.map((h, i) => (
           <PrixCard
             key={h.id}
             entree={h}
@@ -172,7 +169,7 @@ function LigneComparaison({ entree, rang, estMeilleur, ecart }: {
         }),
       });
       setSucces(true);
-    } catch { setErreur("Erreur lors de l'envoi"); }
+    } catch { setErreur('Erreur lors de l'envoi'); }
     finally { setEnCours(false); }
   };
 
