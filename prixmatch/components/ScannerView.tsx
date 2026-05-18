@@ -374,8 +374,7 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
   const [actif, setActif] = useState(false);
   const [erreurCam, setErreurCam] = useState('');
   const streamRef = useRef<MediaStream | null>(null);
-  const animRef = useRef<number | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animRef = useRef<unknown>(null);
 
   const demarrer = async () => {
     setErreurCam('');
@@ -391,40 +390,30 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
       await videoRef.current.play();
       setActif(true);
 
-      // Import dynamique ZXing
-      const { BrowserMultiFormatReader } = await import('@zxing/library');
+      // Import dynamique ZXing — scan en boucle via setInterval
+      const { BrowserMultiFormatReader, NotFoundException } = await import('@zxing/library');
       const reader = new BrowserMultiFormatReader();
-      const canvas = canvasRef.current;
       const video = videoRef.current;
 
-      const scanner = () => {
-        if (!video || video.readyState < 2) {
-          animRef.current = requestAnimationFrame(scanner);
-          return;
-        }
-        if (canvas) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0);
-            try {
-              const result = reader.decodeFromCanvas(canvas);
-              if (result) {
-                const ean = result.getText();
-                arreter();
-                onDetecte(ean);
-                return;
-              }
-            } catch {
-              // Pas de code détecté sur cette frame — continuer
-            }
+      const intervalId = setInterval(async () => {
+        if (!video || video.readyState < 2) return;
+        try {
+          const result = await reader.decodeFromVideoElement(video);
+          if (result) {
+            clearInterval(intervalId);
+            arreter();
+            onDetecte(result.getText());
+          }
+        } catch (e) {
+          // NotFoundException = pas de code sur cette frame, normal
+          if (!(e instanceof NotFoundException)) {
+            clearInterval(intervalId);
           }
         }
-        animRef.current = requestAnimationFrame(scanner);
-      };
+      }, 200);
 
-      animRef.current = requestAnimationFrame(scanner);
+      // Stocker l'interval pour pouvoir l'arrêter
+      (animRef as React.MutableRefObject<unknown>).current = intervalId;
     } catch (e: unknown) {
       const msg = (e as Error)?.message ?? '';
       if (msg.includes('NotAllowed') || msg.includes('Permission')) {
@@ -438,7 +427,7 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
   };
 
   const arreter = () => {
-    if (animRef.current) cancelAnimationFrame(animRef.current);
+    if (animRef.current) clearInterval(animRef.current as ReturnType<typeof setInterval>);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -453,7 +442,6 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
       <div className="space-y-3">
         <div className="relative rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '4/3' }}>
           <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-          <canvas ref={canvasRef} className="hidden" />
           {/* Viseur central */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-56 h-32 border-2 border-accent rounded-xl opacity-80">
