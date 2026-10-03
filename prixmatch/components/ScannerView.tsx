@@ -393,35 +393,9 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
         }
       });
       streamRef.current = stream;
-
-      if (!videoRef.current) return;
-      videoRef.current.srcObject = stream;
-      videoRef.current.setAttribute('playsinline', 'true');
-      videoRef.current.setAttribute('autoplay', 'true');
-      videoRef.current.muted = true;
-      await videoRef.current.play();
+      // On affiche d'abord le conteneur vidéo : le flux est attaché dans
+      // l'effet ci-dessous, une fois la <video> réellement visible.
       setActif(true);
-
-      // BarcodeDetector API native (Chrome Android, Safari 17+)
-      if ('BarcodeDetector' in window) {
-        // @ts-ignore
-        const detector = new window.BarcodeDetector({
-          formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
-        });
-
-        intervalRef.current = setInterval(async () => {
-          if (!videoRef.current || videoRef.current.readyState < 2) return;
-          try {
-            // @ts-ignore
-            const barcodes = await detector.detect(videoRef.current);
-            if (barcodes.length > 0) {
-              const ean = barcodes[0].rawValue;
-              arreter();
-              onDetecte(ean);
-            }
-          } catch { /* frame sans code */ }
-        }, 300);
-      }
     } catch (e: unknown) {
       const msg = (e as Error)?.message ?? String(e);
       if (msg.includes('NotAllowed') || msg.includes('Permission')) {
@@ -445,6 +419,53 @@ function ScannerCamera({ onDetecte }: { onDetecte: (ean: string) => void }) {
   };
 
   useEffect(() => () => arreter(), []);
+
+  // Attache le flux à la <video> une fois le conteneur affiché, puis lance la détection
+  useEffect(() => {
+    if (!actif) return;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+
+    let annule = false;
+
+    video.srcObject = stream;
+    video.setAttribute('playsinline', 'true');
+    video.muted = true;
+    video.play().catch(() => {
+      if (!annule) setErreurCam("Impossible de lancer la vidéo. Réessaie ou utilise la saisie manuelle.");
+    });
+
+    // BarcodeDetector API native (Chrome Android, Safari 17+)
+    if ('BarcodeDetector' in window) {
+      // @ts-ignore
+      const detector = new window.BarcodeDetector({
+        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
+      });
+
+      intervalRef.current = setInterval(async () => {
+        if (!videoRef.current || videoRef.current.readyState < 2) return;
+        try {
+          // @ts-ignore
+          const barcodes = await detector.detect(videoRef.current);
+          if (barcodes.length > 0) {
+            const ean = barcodes[0].rawValue;
+            arreter();
+            onDetecte(ean);
+          }
+        } catch { /* frame sans code */ }
+      }, 300);
+    }
+
+    return () => {
+      annule = true;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actif]);
 
   // Fallback : input file pour les navigateurs sans BarcodeDetector
   const scannerFichier = (e: React.ChangeEvent<HTMLInputElement>) => {
