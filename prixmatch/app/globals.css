@@ -189,6 +189,14 @@
     @apply text-xs font-display font-600 px-2 py-0.5 rounded-full;
   }
 
+  /* Prix relevé il y a plus de 30 jours (rgba codé en dur : pas d'opacité sur var CSS) */
+  .badge-obsolete {
+    background-color: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    color: var(--attente);
+    @apply text-[10px] font-display font-600 px-2 py-0.5 rounded-full whitespace-nowrap;
+  }
+
   /* ---- Prix ---- */
   .prix-principal {
     @apply font-mono text-2xl font-500 text-accent tabular-nums;

@@ -118,6 +118,28 @@ export function estDansLesNDerniersjours(dateIso: string, jours: number): boolea
   return maintenant - date <= jours * 24 * 60 * 60 * 1000;
 }
 
+/** Au-delà de ce nombre de jours, un prix relevé est signalé comme obsolète */
+export const SEUIL_PRIX_OBSOLETE_JOURS = 30;
+
+/**
+ * Âge d'un relevé en jours entiers.
+ * Retourne null si la date est invalide.
+ */
+export function ageEnJours(dateIso: string): number | null {
+  const date = new Date(dateIso).getTime();
+  if (isNaN(date)) return null;
+  return Math.floor((Date.now() - date) / (24 * 60 * 60 * 1000));
+}
+
+/**
+ * Retourne true si le relevé a plus de `seuil` jours (30 par défaut).
+ * Une date invalide ou future n'est jamais considérée comme obsolète.
+ */
+export function estPrixObsolete(dateIso: string, seuil: number = SEUIL_PRIX_OBSOLETE_JOURS): boolean {
+  const age = ageEnJours(dateIso);
+  return age !== null && age > seuil;
+}
+
 // ============================================================
 // Constantes utiles
 // ============================================================

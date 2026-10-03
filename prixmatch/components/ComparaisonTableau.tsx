@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import type { EntreePrix, Unite } from '@/lib/storage';
 import { formaterPrix as fP, calculerPrixReference, UNITES, normaliserNom } from '@/lib/utils';
 import { ENSEIGNES } from '@/lib/config';
-import { formaterPrix, formaterDate, libellePrixReference } from '@/lib/utils';
+import { formaterPrix, formaterDate, libellePrixReference, estPrixObsolete, ageEnJours } from '@/lib/utils';
 import PrixCard from '@/components/PrixCard';
 
 interface Props {
@@ -189,10 +189,15 @@ function LigneComparaison({ entree, rang, estMeilleur, ecart }: {
                 </span>
               )}
             </p>
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-x-2 gap-y-1 flex-wrap mt-0.5">
               <p className="text-tertiaire text-[10px] font-mono">
                 {entree.quantite} {entree.unite} · {formaterDate(entree.date_releve)}
               </p>
+              {estPrixObsolete(entree.date_releve) && (
+                <span className="badge-obsolete" title={`Prix relevé il y a ${ageEnJours(entree.date_releve)} jours — à vérifier`}>
+                  ⏳ Obsolète
+                </span>
+              )}
               <button type="button" onClick={() => { setModale(true); setSucces(false); }}
                 className="text-[10px] font-display text-accent border border-accent/30 px-1.5 py-0.5 rounded hover:bg-accent/10 transition-colors">
                 ✎ Proposer

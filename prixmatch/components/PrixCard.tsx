@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import type { EntreePrix, Unite } from '@/lib/storage';
-import { formaterPrix, formaterDate, libellePrixReference, calculerPrixReference, UNITES, normaliserNom } from '@/lib/utils';
+import { formaterPrix, formaterDate, libellePrixReference, calculerPrixReference, UNITES, normaliserNom, estPrixObsolete, ageEnJours } from '@/lib/utils';
 import { ENSEIGNES, CATEGORIES } from '@/lib/config';
 
 interface Props {
@@ -144,6 +144,8 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
   };
 
   const couleurEnseigne = COULEURS_ENSEIGNES[entree.enseigne] ?? '#555';
+  const obsolete = estPrixObsolete(entree.date_releve);
+  const age = ageEnJours(entree.date_releve);
 
   return (
     <>
@@ -163,6 +165,11 @@ export default function PrixCard({ entree, meilleurPrix = false, rang, modeAdmin
               </span>
               {entree.source === 'ticket_ocr' && (
                 <span className="text-[10px] text-tertiaire font-display">📷 ticket</span>
+              )}
+              {obsolete && (
+                <span className="badge-obsolete" title={`Prix relevé il y a ${age} jours — à vérifier`}>
+                  ⏳ Obsolète · {age} j
+                </span>
               )}
             </div>
             <p className="font-display font-600 text-sm text-texte leading-tight truncate">
